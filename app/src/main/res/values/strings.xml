@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">EchoNote</string>
+    <string name="notification_channel_name">Keyword Listening</string>
+    <string name="notification_listening">EchoNote — Listening for wake keyword</string>
+    <string name="notification_stop">Stop Listening</string>
+</resources>
