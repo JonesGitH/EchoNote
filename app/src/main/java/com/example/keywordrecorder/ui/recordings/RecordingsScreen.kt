@@ -1,20 +1,25 @@
 package com.example.keywordrecorder.ui.recordings
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.keywordrecorder.data.DailySummaryEntity
 import com.example.keywordrecorder.data.RecordingEntity
 import com.example.keywordrecorder.data.TranscriptionStatus
+import com.example.keywordrecorder.ui.theme.*
 import com.example.keywordrecorder.util.TimeUtils
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RecordingsScreen(
     onOpenDetail: (Long) -> Unit,
@@ -23,46 +28,91 @@ fun RecordingsScreen(
     val recordings by vm.recordings.collectAsState()
     val summaries by vm.summaries.collectAsState()
 
-    Surface(modifier = Modifier.fillMaxSize()) {
-        Column(modifier = Modifier.fillMaxSize()) {
-            TopAppBar(title = { Text("Recordings") })
-            LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                if (summaries.isNotEmpty()) {
-                    item {
-                        Text(
-                            "Daily Summaries",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                    }
-                    items(summaries) { summary ->
-                        SummaryCard(summary)
-                    }
-                    item { Spacer(modifier = Modifier.height(8.dp)) }
+    Surface(modifier = Modifier.fillMaxSize(), color = TermBg) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item {
+                // Screen header
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "RECORDINGS",
+                        color = TermCyan,
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        "${recordings.size} rec  ${summaries.size} sum",
+                        color = TermTextDim,
+                        style = MaterialTheme.typography.bodySmall
+                    )
                 }
-                if (recordings.isNotEmpty()) {
-                    item {
-                        Text(
-                            "Individual Recordings",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.padding(bottom = 4.dp)
-                        )
-                    }
-                    items(recordings) { recording ->
-                        RecordingCard(recording, onClick = { onOpenDetail(recording.id) })
+                TermDivider(modifier = Modifier.padding(top = 6.dp))
+            }
+
+            if (summaries.isNotEmpty()) {
+                item {
+                    Text(
+                        "─[ DAILY SUMMARIES ]",
+                        color = TermPurple,
+                        style = MaterialTheme.typography.titleSmall,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                items(summaries, key = { it.id }) { summary ->
+                    SummaryRow(summary)
+                }
+            }
+
+            if (recordings.isNotEmpty()) {
+                item {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "─[ INDIVIDUAL RECORDINGS ]",
+                        color = TermPurple,
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    // Column header
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(TermSurfaceAlt)
+                            .padding(horizontal = 10.dp, vertical = 4.dp)
+                    ) {
+                        Text("TIMESTAMP          ", color = TermTextDim, style = MaterialTheme.typography.labelSmall)
+                        Text("DUR    ", color = TermTextDim, style = MaterialTheme.typography.labelSmall)
+                        Text("STATUS    ", color = TermTextDim, style = MaterialTheme.typography.labelSmall)
+                        Text("TRANSCRIPT", color = TermTextDim, style = MaterialTheme.typography.labelSmall)
                     }
                 }
-                if (summaries.isEmpty() && recordings.isEmpty()) {
-                    item {
-                        Box(modifier = Modifier.fillMaxWidth().padding(32.dp)) {
+                items(recordings, key = { it.id }) { rec ->
+                    RecordingRow(rec, onClick = { onOpenDetail(rec.id) })
+                }
+            }
+
+            if (summaries.isEmpty() && recordings.isEmpty()) {
+                item {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, TermBorder)
+                            .background(TermSurface)
+                            .padding(24.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text("[ NO DATA ]", color = TermTextDim, style = MaterialTheme.typography.titleSmall)
+                            Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                "No recordings yet.\nSay your wake keyword to start.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                "Say your wake keyword to start recording.",
+                                color = TermTextDim,
+                                style = MaterialTheme.typography.bodySmall
                             )
                         }
                     }
@@ -73,81 +123,88 @@ fun RecordingsScreen(
 }
 
 @Composable
-private fun SummaryCard(summary: DailySummaryEntity) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
+private fun SummaryRow(summary: DailySummaryEntity) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, TermBorder)
+            .background(TermSurface)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(TermSurfaceAlt)
+                .padding(horizontal = 10.dp, vertical = 5.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
                 TimeUtils.formatDate(summary.dateEpochMillis),
-                style = MaterialTheme.typography.titleSmall
+                color = TermCyan,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold
             )
-            Spacer(modifier = Modifier.height(4.dp))
             Text(
-                "${summary.recordingCount} recording${if (summary.recordingCount != 1) "s" else ""} combined",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                summary.summaryText,
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 4
+                "${summary.recordingCount} recordings → Downloads",
+                color = TermGreen,
+                style = MaterialTheme.typography.labelSmall
             )
         }
+        Text(
+            summary.summaryText,
+            color = TermTextNormal,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+            maxLines = 5
+        )
     }
 }
 
 @Composable
-private fun RecordingCard(recording: RecordingEntity, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = MaterialTheme.shapes.large,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-    ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(TimeUtils.formatFull(recording.createdAtEpochMillis),
-                    style = MaterialTheme.typography.titleSmall)
-                StatusChip(recording.transcriptionStatus)
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-            Text(
-                TimeUtils.formatDuration(recording.durationMillis),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            recording.transcriptText?.let {
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(it, style = MaterialTheme.typography.bodyMedium, maxLines = 2)
-            }
-        }
+private fun RecordingRow(recording: RecordingEntity, onClick: () -> Unit) {
+    val (statusLabel, statusColor) = when (recording.transcriptionStatus) {
+        TranscriptionStatus.PENDING    -> "PENDING"    to TermYellow
+        TranscriptionStatus.PROCESSING -> "RUNNING"    to TermCyan
+        TranscriptionStatus.COMPLETED  -> "DONE"       to TermGreen
+        TranscriptionStatus.FAILED     -> "FAILED"     to TermRed
+        TranscriptionStatus.SKIPPED    -> "SKIPPED"    to TermTextDim
     }
-}
 
-@Composable
-private fun StatusChip(status: TranscriptionStatus) {
-    val (label, color) = when (status) {
-        TranscriptionStatus.PENDING -> "Pending" to MaterialTheme.colorScheme.outline
-        TranscriptionStatus.PROCESSING -> "Processing" to MaterialTheme.colorScheme.tertiary
-        TranscriptionStatus.COMPLETED -> "Done" to MaterialTheme.colorScheme.primary
-        TranscriptionStatus.FAILED -> "Failed" to MaterialTheme.colorScheme.error
-        TranscriptionStatus.SKIPPED -> "Skipped" to MaterialTheme.colorScheme.outline
-    }
-    Surface(
-        shape = MaterialTheme.shapes.small,
-        color = color.copy(alpha = 0.12f)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, TermBorder)
+            .background(TermSurface)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            label,
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-            style = MaterialTheme.typography.labelSmall,
-            color = color
+            TimeUtils.formatFull(recording.createdAtEpochMillis),
+            color = TermTextNormal,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.weight(0f).widthIn(min = 140.dp)
+        )
+        Text(
+            TimeUtils.formatDuration(recording.durationMillis),
+            color = TermTextDim,
+            style = MaterialTheme.typography.bodySmall,
+            modifier = Modifier.width(48.dp)
+        )
+        Row(
+            modifier = Modifier.width(80.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("●", color = statusColor, style = MaterialTheme.typography.labelSmall)
+            Text(statusLabel, color = statusColor, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Bold)
+        }
+        Text(
+            recording.transcriptText ?: "—",
+            color = TermTextDim,
+            style = MaterialTheme.typography.bodySmall,
+            maxLines = 1,
+            modifier = Modifier.weight(1f)
         )
     }
 }

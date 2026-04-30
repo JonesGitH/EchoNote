@@ -1,57 +1,71 @@
 package com.example.keywordrecorder.ui.theme
 
 import android.app.Activity
-import android.os.Build
-import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.unit.dp
 import androidx.core.view.WindowCompat
 
-private val LightColorScheme = lightColorScheme(
-    primary = IndigoPrimary,
-    secondary = IndigoSecondary,
-    tertiary = IndigoTertiary,
-    primaryContainer = IndigoContainer,
-    onPrimaryContainer = OnIndigoContainer
+// Terminal color scheme — always dark, no dynamic color
+private val TermColorScheme = darkColorScheme(
+    primary              = TermCyan,
+    onPrimary            = TermBg,
+    primaryContainer     = TermSelected,
+    onPrimaryContainer   = TermTextHeader,
+    secondary            = TermPurple,
+    onSecondary          = TermBg,
+    secondaryContainer   = TermSurfaceAlt,
+    onSecondaryContainer = TermTextHeader,
+    tertiary             = TermGreen,
+    onTertiary           = TermBg,
+    tertiaryContainer    = TermSurface,
+    onTertiaryContainer  = TermGreen,
+    background           = TermBg,
+    onBackground         = TermTextNormal,
+    surface              = TermSurface,
+    onSurface            = TermTextNormal,
+    surfaceVariant       = TermSurfaceAlt,
+    onSurfaceVariant     = TermTextHeader,
+    outline              = TermBorder,
+    outlineVariant       = TermTextDim,
+    error                = TermRed,
+    onError              = TermBg,
+    errorContainer       = TermSurface,
+    onErrorContainer     = TermPink,
+    inverseSurface       = TermTextNormal,
+    inverseOnSurface     = TermBg,
+    inversePrimary       = TermBg,
+    surfaceTint          = TermCyan,
+    scrim                = TermBg
 )
 
-private val DarkColorScheme = darkColorScheme(
-    primary = IndigoSecondary,
-    secondary = IndigoTertiary,
-    tertiary = IndigoPrimary
+// Tight rectangular shapes for the terminal look
+private val TermShapes = Shapes(
+    extraSmall = RoundedCornerShape(2.dp),
+    small      = RoundedCornerShape(2.dp),
+    medium     = RoundedCornerShape(2.dp),
+    large      = RoundedCornerShape(2.dp),
+    extraLarge = RoundedCornerShape(2.dp)
 )
 
 @Composable
-fun KeywordRecorderTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = true,
-    content: @Composable () -> Unit
-) {
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-        }
-        darkTheme -> DarkColorScheme
-        else -> LightColorScheme
-    }
-
+fun KeywordRecorderTheme(content: @Composable () -> Unit) {
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            window.statusBarColor = colorScheme.primary.toArgb()
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+            window.statusBarColor = TermBg.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = false
         }
     }
-
     MaterialTheme(
-        colorScheme = colorScheme,
-        typography = Typography,
-        content = content
+        colorScheme = TermColorScheme,
+        typography  = Typography,
+        shapes      = TermShapes,
+        content     = content
     )
 }

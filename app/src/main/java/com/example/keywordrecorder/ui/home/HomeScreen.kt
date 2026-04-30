@@ -1,56 +1,92 @@
 package com.example.keywordrecorder.ui.home
 
-import androidx.compose.animation.core.*
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.keywordrecorder.audio.ModelState
 import com.example.keywordrecorder.service.ListenerState
+import com.example.keywordrecorder.ui.theme.*
 
 @Composable
 fun HomeScreen(vm: HomeViewModel = viewModel()) {
     val listenerState by vm.listenerState.collectAsState()
     val modelState by vm.modelState.collectAsState()
 
-    Surface(modifier = Modifier.fillMaxSize()) {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = TermBg
+    ) {
         Column(
-            modifier = Modifier.fillMaxSize().padding(24.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(12.dp)
+                .verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            // App header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "ECHONOTE",
+                    color = TermCyan,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                )
+                Text(
+                    text = "v1.0",
+                    color = TermTextDim,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+            TermDivider()
+
             when (val ms = modelState) {
                 is ModelState.Downloading -> {
-                    Text("Downloading model…", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    LinearProgressIndicator(
-                        progress = { ms.progress / 100f },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("${ms.progress}%", style = MaterialTheme.typography.bodySmall)
+                    TermPanel(title = "MODEL DOWNLOAD") {
+                        TermPrompt("STATUS", "DOWNLOADING", valueColor = TermYellow)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        TermProgressBar(
+                            progress = ms.progress / 100f,
+                            barWidth = 24,
+                            color = TermPurpleBar
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            "vosk-model-small-en-us-0.15.zip",
+                            color = TermTextDim,
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                 }
                 is ModelState.Extracting -> {
-                    Text("Extracting model…", style = MaterialTheme.typography.titleMedium)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    TermPanel(title = "MODEL SETUP") {
+                        TermPrompt("STATUS", "EXTRACTING...", valueColor = TermYellow)
+                        Spacer(modifier = Modifier.height(12.dp))
+                        TermProgressBar(progress = 1f, barWidth = 24, color = TermYellow)
+                    }
                 }
                 is ModelState.Error -> {
-                    Text("Model error: ${ms.message}", color = MaterialTheme.colorScheme.error)
+                    TermPanel(title = "MODEL ERROR") {
+                        TermStatusDot(label = "ERROR", color = TermRed)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(ms.message, color = TermPink, style = MaterialTheme.typography.bodySmall)
+                    }
                 }
                 else -> {
-                    PulsingMic(listenerState)
-                    Spacer(modifier = Modifier.height(24.dp))
-                    ListenerStatusText(listenerState)
+                    StatusPanel(listenerState)
                 }
             }
         }
@@ -58,54 +94,52 @@ fun HomeScreen(vm: HomeViewModel = viewModel()) {
 }
 
 @Composable
-private fun PulsingMic(state: ListenerState) {
-    val isPulsing = state == ListenerState.LISTENING || state == ListenerState.RECORDING
-    val scale by if (isPulsing) {
-        val infiniteTransition = rememberInfiniteTransition(label = "pulse")
-        infiniteTransition.animateFloat(
-            initialValue = 1f,
-            targetValue = 1.15f,
-            animationSpec = infiniteRepeatable(
-                animation = tween(800, easing = EaseInOut),
-                repeatMode = RepeatMode.Reverse
-            ),
-            label = "scale"
+private fun StatusPanel(state: ListenerState) {
+    val (statusLabel, statusColor) = when (state) {
+        ListenerState.STOPPED           -> "STOPPED"           to TermTextDim
+        ListenerState.STARTING          -> "STARTING..."       to TermYellow
+        ListenerState.LISTENING         -> "LISTENING"         to TermGreen
+        ListenerState.WAKE_WORD_DETECTED-> "WAKE WORD DETECTED"to TermCyan
+        ListenerState.RECORDING         -> "RECORDING"         to TermRed
+        ListenerState.ERROR             -> "ERROR"             to TermRed
+    }
+
+    TermPanel(title = "LISTENER STATUS") {
+        TermStatusDot(label = statusLabel, color = statusColor)
+    }
+
+    Spacer(modifier = Modifier.height(4.dp))
+
+    TermPanel(title = "SYSTEM INFO") {
+        TermPrompt(
+            label = "MODEL",
+            value = "READY",
+            valueColor = TermGreen
         )
-    } else {
-        remember { mutableFloatStateOf(1f) }
+        Spacer(modifier = Modifier.height(6.dp))
+        TermPrompt(
+            label = "SERVICE",
+            value = if (state == ListenerState.STOPPED || state == ListenerState.ERROR) "INACTIVE" else "ACTIVE",
+            valueColor = if (state == ListenerState.STOPPED || state == ListenerState.ERROR) TermRed else TermGreen
+        )
     }
 
-    val color = when (state) {
-        ListenerState.RECORDING -> MaterialTheme.colorScheme.error
-        ListenerState.WAKE_WORD_DETECTED -> MaterialTheme.colorScheme.tertiary
-        ListenerState.LISTENING -> MaterialTheme.colorScheme.primary
-        else -> MaterialTheme.colorScheme.outline
+    if (state == ListenerState.RECORDING) {
+        Spacer(modifier = Modifier.height(4.dp))
+        TermPanel(title = "RECORDING") {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text("●", color = TermRed, fontSize = 10.sp)
+                Text("AUDIO CAPTURE IN PROGRESS", color = TermRed, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Bold)
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Text("Recording stops on silence or max duration", color = TermTextDim, style = MaterialTheme.typography.bodySmall)
+        }
     }
 
-    Box(
-        modifier = Modifier
-            .size(120.dp)
-            .scale(scale)
-            .background(color = color, shape = CircleShape),
-        contentAlignment = Alignment.Center
-    ) {
-        Text("🎙", fontSize = 48.sp)
+    Spacer(modifier = Modifier.height(4.dp))
+    TermPanel(title = "HINTS") {
+        TermKeyHint("SAY", "wake keyword to start recording")
+        Spacer(modifier = Modifier.height(4.dp))
+        TermKeyHint("TAB", "switch to RECORDINGS or SETTINGS")
     }
-}
-
-@Composable
-private fun ListenerStatusText(state: ListenerState) {
-    val text = when (state) {
-        ListenerState.STOPPED -> "Stopped"
-        ListenerState.STARTING -> "Starting…"
-        ListenerState.LISTENING -> "Listening for wake word"
-        ListenerState.WAKE_WORD_DETECTED -> "Wake word detected!"
-        ListenerState.RECORDING -> "Recording…"
-        ListenerState.ERROR -> "Error — check settings"
-    }
-    Text(
-        text = text,
-        style = MaterialTheme.typography.titleLarge,
-        fontWeight = FontWeight.Medium
-    )
 }

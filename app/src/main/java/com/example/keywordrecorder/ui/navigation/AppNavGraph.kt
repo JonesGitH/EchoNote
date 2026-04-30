@@ -1,14 +1,15 @@
 package com.example.keywordrecorder.ui.navigation
 
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.List
-import androidx.compose.material.icons.filled.Settings
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
@@ -21,12 +22,13 @@ import com.example.keywordrecorder.ui.detail.RecordingDetailScreen
 import com.example.keywordrecorder.ui.home.HomeScreen
 import com.example.keywordrecorder.ui.recordings.RecordingsScreen
 import com.example.keywordrecorder.ui.settings.SettingsScreen
+import com.example.keywordrecorder.ui.theme.*
 
-private sealed class Screen(val route: String, val label: String) {
-    object Home : Screen("home", "Home")
-    object Recordings : Screen("recordings", "Recordings")
-    object Settings : Screen("settings", "Settings")
-    object Detail : Screen("detail/{id}", "Detail")
+private sealed class Screen(val route: String, val label: String, val shortcut: String) {
+    object Home      : Screen("home",      "HOME",      "H")
+    object Recordings: Screen("recordings","RECORDINGS","R")
+    object Settings  : Screen("settings",  "SETTINGS",  "S")
+    object Detail    : Screen("detail/{id}","DETAIL",   "")
 }
 
 @Composable
@@ -35,34 +37,22 @@ fun AppNavGraph() {
     val navBackStack by navController.currentBackStackEntryAsState()
     val currentDestination = navBackStack?.destination
 
-    val topLevelRoutes = listOf(Screen.Home, Screen.Recordings, Screen.Settings)
+    val topLevelScreens = listOf(Screen.Home, Screen.Recordings, Screen.Settings)
 
     Scaffold(
+        containerColor = TermBg,
         bottomBar = {
-            NavigationBar {
-                topLevelRoutes.forEach { screen ->
-                    val selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
-                    NavigationBarItem(
-                        selected = selected,
-                        onClick = {
-                            navController.navigate(screen.route) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                        },
-                        icon = {
-                            when (screen) {
-                                Screen.Home -> Icon(Icons.Default.Home, contentDescription = screen.label)
-                                Screen.Recordings -> Icon(Icons.Default.List, contentDescription = screen.label)
-                                Screen.Settings -> Icon(Icons.Default.Settings, contentDescription = screen.label)
-                                else -> {}
-                            }
-                        },
-                        label = { Text(screen.label) }
-                    )
+            TermNavBar(
+                screens = topLevelScreens,
+                currentDestination = currentDestination,
+                onClick = { screen ->
+                    navController.navigate(screen.route) {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 }
-            }
+            )
         }
     ) { innerPadding ->
         NavHost(
@@ -81,6 +71,56 @@ fun AppNavGraph() {
                 RecordingDetailScreen(recordingId = backStackEntry.arguments!!.getLong("id"))
             }
             composable(Screen.Settings.route) { SettingsScreen() }
+        }
+    }
+}
+
+@Composable
+private fun TermNavBar(
+    screens: List<Screen>,
+    currentDestination: NavDestination?,
+    onClick: (Screen) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(TermSurface)
+    ) {
+        HorizontalDivider(color = TermBorder, thickness = 1.dp)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 8.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceEvenly,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            screens.forEach { screen ->
+                val selected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
+                val color = if (selected) TermCyan else TermTextDim
+                val label = if (selected) "[${screen.label}]" else " ${screen.label} "
+
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier
+                        .clickable { onClick(screen) }
+                        .padding(horizontal = 12.dp, vertical = 4.dp)
+                ) {
+                    Text(
+                        text = label,
+                        color = color,
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                    )
+                    if (selected) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        HorizontalDivider(
+                            modifier = Modifier.width(40.dp),
+                            color = TermCyan,
+                            thickness = 1.dp
+                        )
+                    }
+                }
+            }
         }
     }
 }
