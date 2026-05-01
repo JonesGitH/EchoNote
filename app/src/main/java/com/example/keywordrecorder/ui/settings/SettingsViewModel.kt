@@ -35,4 +35,8 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         store.updateDailyTranscriptionTime(hour, minute)
         TranscriptionScheduler.scheduleBatchTranscription(application, hour, minute)
     }
+
+    fun deleteAllRecordings() = viewModelScope.launch {
+        application.recordingRepository.deleteAll()
+    }
 }

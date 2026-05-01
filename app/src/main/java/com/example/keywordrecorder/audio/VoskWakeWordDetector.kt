@@ -69,5 +69,7 @@ class VoskWakeWordDetector(
             ar.release()
         }
         audioRecord = null
+        recognizer?.close()
+        recognizer = null
     }
 }

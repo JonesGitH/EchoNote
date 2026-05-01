@@ -1,14 +1,19 @@
 package com.example.keywordrecorder.ui.home
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ripple
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -41,11 +46,25 @@ import kotlin.math.sin
 @Composable
 fun HomeScreen(
     homeVm: HomeViewModel = viewModel(),
-    recordingsVm: RecordingsViewModel = viewModel()
+    recordingsVm: RecordingsViewModel = viewModel(),
+    onOpenSettings: () -> Unit = {},
+    onOpenRecordings: () -> Unit = {},
+    onOpenDetail: (Long) -> Unit = {}
 ) {
     val listenerState by homeVm.listenerState.collectAsStateWithLifecycle()
     val modelState by homeVm.modelState.collectAsStateWithLifecycle()
     val recordings by recordingsVm.recordings.collectAsStateWithLifecycle()
+    val requestAudioPermission by homeVm.requestAudioPermission.collectAsStateWithLifecycle()
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        homeVm.onPermissionRequestHandled()
+        if (granted) homeVm.toggleListening()
+    }
+    LaunchedEffect(requestAudioPermission) {
+        if (requestAudioPermission) permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+    }
 
     var selectedTab by remember { mutableIntStateOf(0) }
     val tabs = listOf("All", "Recent", "Starred")
@@ -72,7 +91,7 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 EchoWordmark()
-                IconButton(onClick = {}) {
+                IconButton(onClick = onOpenSettings) {
                     Text("⋯", color = EchoTextSecondary, fontSize = 20.sp)
                 }
             }
@@ -126,14 +145,21 @@ fun HomeScreen(
                     }
                 } else {
                     items(filteredRecordings, key = { it.id }) { rec ->
-                        RecordingCard(recording = rec)
+                        RecordingCard(
+                            recording = rec,
+                            onClick = { onOpenDetail(rec.id) }
+                        )
                     }
                 }
                 item { Spacer(modifier = Modifier.height(8.dp)) }
             }
 
             // Bottom recording control panel
-            RecordingPanel(state = listenerState)
+            RecordingPanel(
+                state = listenerState,
+                onToggleListening = { homeVm.toggleListening() },
+                onOpenRecordings = onOpenRecordings
+            )
         }
     }
 }
@@ -187,13 +213,16 @@ private fun FilterTab(label: String, selected: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun RecordingCard(recording: RecordingEntity) {
+private fun RecordingCard(recording: RecordingEntity, onClick: () -> Unit) {
     val title = buildCardTitle(recording)
     val timeLabel = buildTimeLabel(recording.createdAtEpochMillis)
-    val snippet = recording.transcriptText?.take(80)?.let { "\"$it…\"" } ?: "Tap to transcribe"
+    val snippet = recording.transcriptText?.let { text ->
+        if (text.length > 80) "\"${text.take(80)}…\"" else "\"$text\""
+    } ?: "Tap to transcribe"
     val duration = TimeUtils.formatDuration(recording.durationMillis)
 
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = EchoSurface),
@@ -286,7 +315,11 @@ private fun EmptyState(tab: String) {
 }
 
 @Composable
-private fun RecordingPanel(state: ListenerState) {
+private fun RecordingPanel(
+    state: ListenerState,
+    onToggleListening: () -> Unit,
+    onOpenRecordings: () -> Unit
+) {
     val isRecording = state == ListenerState.RECORDING
     val isListening = state == ListenerState.LISTENING || state == ListenerState.WAKE_WORD_DETECTED
 
@@ -331,15 +364,15 @@ private fun RecordingPanel(state: ListenerState) {
             ) {
                 // Stop / pause
                 IconButton(
-                    onClick = {},
+                    onClick = onToggleListening,
                     modifier = Modifier
                         .size(48.dp)
                         .background(EchoSurfaceHigh, CircleShape)
                 ) {
                     Text(
-                        if (isRecording) "⏸" else "⏸",
+                        if (isRecording) "⏸" else "▶",
                         fontSize = 20.sp,
-                        color = if (isRecording) EchoTextPrimary else EchoTextTertiary
+                        color = if (isRecording || isListening) EchoTextPrimary else EchoTextTertiary
                     )
                 }
 
@@ -347,7 +380,12 @@ private fun RecordingPanel(state: ListenerState) {
                 Box(
                     modifier = Modifier
                         .size((64 * pulseScale).dp)
-                        .background(EchoAccent, CircleShape),
+                        .background(EchoAccent, CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = ripple(bounded = false, radius = 40.dp),
+                            onClick = onToggleListening
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Box(
@@ -359,7 +397,7 @@ private fun RecordingPanel(state: ListenerState) {
 
                 // Recordings list / transcript toggle
                 IconButton(
-                    onClick = {},
+                    onClick = onOpenRecordings,
                     modifier = Modifier
                         .size(48.dp)
                         .background(EchoSurfaceHigh, CircleShape)
@@ -379,7 +417,11 @@ private fun RecordingPanel(state: ListenerState) {
                     ListenerState.ERROR             -> "Error"
                 },
                 style = MaterialTheme.typography.labelLarge,
-                color = if (isRecording) EchoAccent else EchoTextTertiary
+                color = when {
+                    state == ListenerState.RECORDING -> EchoAccent
+                    state == ListenerState.ERROR -> EchoRed
+                    else -> EchoTextTertiary
+                }
             )
         }
     }
@@ -401,13 +443,16 @@ fun WaveformBars(
         label = "phase"
     )
 
-    Canvas(modifier = modifier) {
+    val baseHeights = remember(seed, barCount) {
         val rng = java.util.Random(seed)
-        val baseHeights = FloatArray(barCount) { i ->
+        FloatArray(barCount) { i ->
             val envelope = sin(PI * i.toDouble() / barCount).toFloat()
             val noise = rng.nextFloat() * 0.45f
             (envelope * 0.55f + noise + 0.1f).coerceIn(0.08f, 1f)
         }
+    }
+
+    Canvas(modifier = modifier) {
 
         val gap = size.width / (barCount * 2f - 1f)
         val barW = gap

@@ -48,7 +48,9 @@ class DailySummaryWorker(context: Context, params: WorkerParameters) :
         )
         app.dailySummaryRepository.insert(entity)
 
-        exportToDownloads(summaryText, midnightMillis)
+        try { exportToDownloads(summaryText, midnightMillis) } catch (e: Exception) {
+            android.util.Log.e("DailySummaryWorker", "Export to Downloads failed", e)
+        }
 
         for (rec in completed) {
             app.recordingRepository.softDelete(rec.id)

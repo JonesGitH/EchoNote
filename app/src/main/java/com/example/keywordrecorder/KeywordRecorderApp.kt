@@ -1,8 +1,6 @@
 package com.example.keywordrecorder
 
 import android.app.Application
-import android.content.Intent
-import android.os.Build
 import com.example.keywordrecorder.audio.AndroidAudioRecorder
 import com.example.keywordrecorder.audio.VoskModelManager
 import com.example.keywordrecorder.data.AppDatabase
@@ -10,7 +8,6 @@ import com.example.keywordrecorder.data.SettingsDataStore
 import com.example.keywordrecorder.domain.DailySummaryRepository
 import com.example.keywordrecorder.domain.RecordingRepository
 import com.example.keywordrecorder.domain.TranscriptionRepository
-import com.example.keywordrecorder.service.KeywordListeningService
 import com.example.keywordrecorder.transcription.VoskTranscriptionEngine
 import com.example.keywordrecorder.worker.TranscriptionScheduler
 import kotlinx.coroutines.CoroutineScope
@@ -52,15 +49,6 @@ class KeywordRecorderApp : Application() {
                 settings.dailyTranscriptionMinute
             )
             TranscriptionScheduler.scheduleDailySummary(this@KeywordRecorderApp)
-        }
-
-        val serviceIntent = Intent(this, KeywordListeningService::class.java).apply {
-            action = KeywordListeningService.ACTION_START
-        }
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            startForegroundService(serviceIntent)
-        } else {
-            startService(serviceIntent)
         }
     }
 }

@@ -3,6 +3,7 @@ package com.example.keywordrecorder.ui.detail
 import android.media.MediaPlayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -43,8 +44,31 @@ fun RecordingDetailScreen(
     val recording by vm.recording.collectAsStateWithLifecycle()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var playbackProgress by remember { mutableFloatStateOf(0.35f) }
+    var playbackProgress by remember { mutableFloatStateOf(0f) }
     var isPlaying by remember { mutableStateOf(false) }
+    val player = remember { mutableStateOf<MediaPlayer?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            player.value?.release()
+            player.value = null
+        }
+    }
+
+    LaunchedEffect(isPlaying) {
+        while (isPlaying) {
+            val p = player.value
+            try {
+                if (p != null && p.isPlaying) {
+                    val duration = p.duration.takeIf { it > 0 } ?: 1
+                    playbackProgress = p.currentPosition.toFloat() / duration
+                }
+            } catch (_: IllegalStateException) {
+                isPlaying = false
+            }
+            kotlinx.coroutines.delay(200)
+        }
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = EchoBg) {
         when (val rec = recording) {
@@ -93,7 +117,12 @@ fun RecordingDetailScreen(
                     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                         Slider(
                             value = playbackProgress,
-                            onValueChange = { playbackProgress = it },
+                            onValueChange = { value ->
+                                playbackProgress = value
+                                player.value?.let { p ->
+                                    p.seekTo((p.duration * value).toInt())
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             colors = SliderDefaults.colors(
                                 thumbColor = EchoAccent,
@@ -117,20 +146,46 @@ fun RecordingDetailScreen(
                     // Playback controls
                     PlaybackControls(
                         isPlaying = isPlaying,
-                        onSkipBack = { playbackProgress = (playbackProgress - 0.1f).coerceAtLeast(0f) },
+                        onSkipBack = {
+                            player.value?.let { p ->
+                                p.seekTo((p.currentPosition - 5000).coerceAtLeast(0))
+                            }
+                        },
                         onPlayPause = {
-                            isPlaying = !isPlaying
-                            if (isPlaying) {
+                            val p = player.value
+                            if (p != null && isPlaying) {
+                                p.pause()
+                                isPlaying = false
+                            } else {
                                 try {
-                                    val player = MediaPlayer()
-                                    player.setDataSource(rec.filePath)
-                                    player.prepare()
-                                    player.start()
+                                    val mp = p ?: MediaPlayer().also {
+                                        it.setDataSource(rec.filePath)
+                                        it.prepare()
+                                        it.setOnCompletionListener {
+                                            isPlaying = false
+                                            playbackProgress = 0f
+                                        }
+                                        player.value = it
+                                    }
+                                    mp.start()
+                                    isPlaying = true
                                 } catch (_: Exception) {}
                             }
                         },
-                        onSkipForward = { playbackProgress = (playbackProgress + 0.1f).coerceAtMost(1f) },
-                        onStop = { isPlaying = false; playbackProgress = 0f }
+                        onSkipForward = {
+                            player.value?.let { p ->
+                                p.seekTo((p.currentPosition + 5000).coerceAtMost(p.duration))
+                            }
+                        },
+                        onStop = {
+                            player.value?.let { p ->
+                                p.stop()
+                                p.release()
+                            }
+                            player.value = null
+                            isPlaying = false
+                            playbackProgress = 0f
+                        }
                     )
 
                     Spacer(modifier = Modifier.height(20.dp))
@@ -238,7 +293,7 @@ private fun PlaybackControls(
                 .size(44.dp)
                 .background(EchoSurfaceHigh, CircleShape)
         ) {
-            Text(if (isPlaying) "⏸" else "⏸", fontSize = 18.sp, color = EchoTextPrimary)
+            Text(if (isPlaying) "⏸" else "▶", fontSize = 18.sp, color = EchoTextPrimary)
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -248,7 +303,8 @@ private fun PlaybackControls(
             modifier = Modifier
                 .size(60.dp)
                 .background(EchoAccent, CircleShape)
-                .clip(CircleShape),
+                .clip(CircleShape)
+                .clickable { onPlayPause() },
             contentAlignment = Alignment.Center
         ) {
             Text(if (isPlaying) "⏸" else "▶", fontSize = 22.sp, color = Color.White)
@@ -422,12 +478,11 @@ private fun buildHighlightedTranscript(text: String) = buildAnnotatedString {
     // Bold every ~5th–8th word to simulate key phrase highlighting
     val words = text.split(" ")
     var boldCount = 0
-    var inBold = false
     var boldWordsLeft = 0
 
     words.forEachIndexed { idx, word ->
         if (boldWordsLeft > 0) {
-            withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) {
+            withStyle(SpanStyle(color = EchoTextPrimary, fontWeight = FontWeight.Bold)) {
                 append(word)
             }
             boldWordsLeft--

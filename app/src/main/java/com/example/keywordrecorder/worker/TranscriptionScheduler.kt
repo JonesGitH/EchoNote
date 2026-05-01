@@ -2,26 +2,27 @@ package com.example.keywordrecorder.worker
 
 import android.content.Context
 import androidx.work.*
-import java.util.Calendar
+import java.time.Duration
+import java.time.LocalDateTime
 import java.util.concurrent.TimeUnit
 
 object TranscriptionScheduler {
 
     fun scheduleBatchTranscription(context: Context, hour: Int, minute: Int) {
-        val delay = millisUntil(hour, minute)
+        val delay = computeNextDelayMillis(hour, minute)
         val request = PeriodicWorkRequestBuilder<ScheduledTranscriptionWorker>(1, TimeUnit.DAYS)
             .setInitialDelay(delay, TimeUnit.MILLISECONDS)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             "scheduled_batch_transcription",
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             request
         )
     }
 
     fun scheduleDailySummary(context: Context) {
-        val delay = millisUntil(22, 0)
+        val delay = computeNextDelayMillis(22, 0)
         val request = PeriodicWorkRequestBuilder<DailySummaryWorker>(1, TimeUnit.DAYS)
             .setInitialDelay(delay, TimeUnit.MILLISECONDS)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
@@ -58,15 +59,17 @@ object TranscriptionScheduler {
         )
     }
 
-    private fun millisUntil(hour: Int, minute: Int): Long {
-        val now = Calendar.getInstance()
-        val target = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
+    fun computeNextDelayMillis(
+        hour: Int,
+        minute: Int,
+        now: LocalDateTime = LocalDateTime.now()
+    ): Long {
+        val target = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
+        val finalTarget = if (target.isBefore(now)) {
+            target.plusDays(1)
+        } else {
+            target
         }
-        if (target.before(now)) target.add(Calendar.DAY_OF_YEAR, 1)
-        return target.timeInMillis - now.timeInMillis
+        return Duration.between(now, finalTarget).toMillis()
     }
 }

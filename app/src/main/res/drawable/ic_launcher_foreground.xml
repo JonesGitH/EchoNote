@@ -1,120 +1,110 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Foreground layer for EchoNote adaptive icon.
-  Viewport: 352×352 (maps the icon region from the source design).
-  The adaptive icon canvas is 108dp; the safe zone is the inner 72dp (18dp margin each side).
-  Safe zone in viewport units: ~58–294 on both axes. Key elements (mic body, stand) sit
-  within ~x:155–218, y:80–248 — well inside the safe zone.
-  Outer wave arcs (~x:56,296) and the bottom transcript lines (~y:272–305) intentionally
-  extend toward the bleed area for a full-bleed feel on square/rounded-square shapes.
--->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:aapt="http://schemas.android.com/aapt"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="352"
-    android:viewportHeight="352">
+    android:viewportWidth="108"
+    android:viewportHeight="108">
 
-    <!-- Sound wave arcs — left outer -->
+    <!-- Subtle accent glow behind mic -->
     <path
-        android:pathData="M104,98 Q56,176 104,254"
-        android:fillColor="#00000000"
-        android:strokeColor="#5EEAD4"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:strokeAlpha="0.45"/>
+        android:pathData="M54,38 A16,16 0 1,1 54,70 A16,16 0 1,1 54,38 Z"
+        android:fillColor="#1A6C8FFF"/>
 
-    <!-- Sound wave arcs — left inner -->
-    <path
-        android:pathData="M121,115 Q84,176 121,237"
-        android:fillColor="#00000000"
-        android:strokeColor="#5EEAD4"
-        android:strokeWidth="3.5"
-        android:strokeLineCap="round"
-        android:strokeAlpha="0.65"/>
-
-    <!-- Sound wave arcs — right outer -->
-    <path
-        android:pathData="M248,98 Q296,176 248,254"
-        android:fillColor="#00000000"
-        android:strokeColor="#5EEAD4"
-        android:strokeWidth="3"
-        android:strokeLineCap="round"
-        android:strokeAlpha="0.45"/>
-
-    <!-- Sound wave arcs — right inner -->
-    <path
-        android:pathData="M231,115 Q268,176 231,237"
-        android:fillColor="#00000000"
-        android:strokeColor="#5EEAD4"
-        android:strokeWidth="3.5"
-        android:strokeLineCap="round"
-        android:strokeAlpha="0.65"/>
-
-    <!-- Microphone body (pill: w=42, h=72, rx=21, centered at x=176) -->
-    <!-- Path traces: left-mid → top semicircle → right-mid → straight down → bottom semicircle → close -->
-    <path android:pathData="M155,101 A21,21 0 0,0 197,101 L197,131 A21,21 0 0,0 155,131 Z">
+    <!-- Microphone body (rounded rect / pill) -->
+    <path android:pathData="M47,32 A7,7 0 0,1 61,32 L61,52 A7,7 0 0,1 47,52 Z">
         <aapt:attr name="android:fillColor">
             <gradient
                 android:type="linear"
-                android:startX="176"
-                android:startY="80"
-                android:endX="176"
-                android:endY="152">
+                android:startX="54"
+                android:startY="25"
+                android:endX="54"
+                android:endY="59">
                 <item android:color="#FFFFFFFF" android:offset="0"/>
-                <item android:color="#FFD0F0EC" android:offset="1"/>
+                <item android:color="#FFD6DFFF" android:offset="1"/>
             </gradient>
         </aapt:attr>
     </path>
 
-    <!-- Microphone inner detail line (subtle teal stroke inside body) -->
+    <!-- Mic grille lines -->
     <path
-        android:pathData="M165,101 A11,11 0 0,0 187,101 L187,131 A11,11 0 0,0 165,131 Z"
+        android:pathData="M50,36 L58,36"
         android:fillColor="#00000000"
-        android:strokeColor="#1A7A6E"
-        android:strokeWidth="1.5"
-        android:strokeAlpha="0.25"/>
-
-    <!-- Microphone stand: U-arc + vertical stem + horizontal base -->
+        android:strokeColor="#6C8FFF"
+        android:strokeWidth="0.8"
+        android:strokeAlpha="0.4"/>
     <path
-        android:pathData="M134,176 Q134,215 176,215 Q218,215 218,176 M176,215 L176,238 M154,238 L198,238"
+        android:pathData="M50,39 L58,39"
+        android:fillColor="#00000000"
+        android:strokeColor="#6C8FFF"
+        android:strokeWidth="0.8"
+        android:strokeAlpha="0.4"/>
+    <path
+        android:pathData="M50,42 L58,42"
+        android:fillColor="#00000000"
+        android:strokeColor="#6C8FFF"
+        android:strokeWidth="0.8"
+        android:strokeAlpha="0.4"/>
+
+    <!-- Mic stand: U-shape + stem + base -->
+    <path
+        android:pathData="M42,52 Q42,66 54,66 Q66,66 66,52"
         android:fillColor="#00000000"
         android:strokeColor="#FFFFFF"
-        android:strokeWidth="4.5"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M54,66 L54,73"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"/>
+    <path
+        android:pathData="M46,73 L62,73"
+        android:fillColor="#00000000"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="2.5"
         android:strokeLineCap="round"/>
 
-    <!-- Transcription lines — row 1 -->
+    <!-- Sound wave arcs — left inner -->
     <path
-        android:pathData="M53.5,272 L128.5,272 A2.5,2.5 0 0,1 128.5,277 L53.5,277 A2.5,2.5 0 0,1 53.5,272 Z"
-        android:fillColor="#5EEAD4"
-        android:fillAlpha="0.9"/>
-    <path
-        android:pathData="M141.5,272 L256.5,272 A2.5,2.5 0 0,1 256.5,277 L141.5,277 A2.5,2.5 0 0,1 141.5,272 Z"
-        android:fillColor="#5EEAD4"
-        android:fillAlpha="0.55"/>
-    <path
-        android:pathData="M269.5,272 L319.5,272 A2.5,2.5 0 0,1 319.5,277 L269.5,277 A2.5,2.5 0 0,1 269.5,272 Z"
-        android:fillColor="#5EEAD4"
-        android:fillAlpha="0.35"/>
+        android:pathData="M36,36 Q29,46 36,56"
+        android:fillColor="#00000000"
+        android:strokeColor="#6C8FFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.7"/>
 
-    <!-- Transcription lines — row 2 -->
+    <!-- Sound wave arcs — left outer -->
     <path
-        android:pathData="M53.5,286 L178.5,286 A2.5,2.5 0 0,1 178.5,291 L53.5,291 A2.5,2.5 0 0,1 53.5,286 Z"
-        android:fillColor="#5EEAD4"
-        android:fillAlpha="0.6"/>
-    <path
-        android:pathData="M191.5,286 L276.5,286 A2.5,2.5 0 0,1 276.5,291 L191.5,291 A2.5,2.5 0 0,1 191.5,286 Z"
-        android:fillColor="#5EEAD4"
-        android:fillAlpha="0.4"/>
+        android:pathData="M30,30 Q20,46 30,62"
+        android:fillColor="#00000000"
+        android:strokeColor="#6C8FFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.4"/>
 
-    <!-- Transcription lines — row 3 -->
+    <!-- Sound wave arcs — right inner -->
     <path
-        android:pathData="M53.5,300 L108.5,300 A2.5,2.5 0 0,1 108.5,305 L53.5,305 A2.5,2.5 0 0,1 53.5,300 Z"
-        android:fillColor="#5EEAD4"
-        android:fillAlpha="0.5"/>
+        android:pathData="M72,36 Q79,46 72,56"
+        android:fillColor="#00000000"
+        android:strokeColor="#6C8FFF"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.7"/>
+
+    <!-- Sound wave arcs — right outer -->
     <path
-        android:pathData="M121.5,300 L216.5,300 A2.5,2.5 0 0,1 216.5,305 L121.5,305 A2.5,2.5 0 0,1 121.5,300 Z"
-        android:fillColor="#5EEAD4"
-        android:fillAlpha="0.3"/>
+        android:pathData="M78,30 Q88,46 78,62"
+        android:fillColor="#00000000"
+        android:strokeColor="#6C8FFF"
+        android:strokeWidth="1.8"
+        android:strokeLineCap="round"
+        android:strokeAlpha="0.4"/>
+
+    <!-- Accent dot (the "." in Echo.Notes) -->
+    <path
+        android:pathData="M54,80 A2,2 0 1,1 54,84 A2,2 0 1,1 54,80 Z"
+        android:fillColor="#6C8FFF"/>
 
 </vector>

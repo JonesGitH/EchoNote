@@ -36,13 +36,19 @@ class VoskModelManager(private val context: Context) {
     suspend fun ensureModel(): Model = mutex.withLock {
         model?.let { return it }
         withContext(Dispatchers.IO) {
-            if (!modelDir.exists()) {
-                downloadAndExtract()
+            try {
+                if (!modelDir.exists()) {
+                    downloadAndExtract()
+                }
+                val loaded = Model(modelDir.absolutePath)
+                model = loaded
+                _state.value = ModelState.Ready
+                loaded
+            } catch (e: Exception) {
+                modelDir.deleteRecursively()
+                _state.value = ModelState.Error(e.message ?: "Failed to load model")
+                throw e
             }
-            val loaded = Model(modelDir.absolutePath)
-            model = loaded
-            _state.value = ModelState.Ready
-            loaded
         }
     }
 
@@ -70,10 +76,14 @@ class VoskModelManager(private val context: Context) {
         }
 
         _state.value = ModelState.Extracting
+        val targetDir = context.filesDir
         ZipInputStream(zipFile.inputStream()).use { zip ->
             var entry = zip.nextEntry
             while (entry != null) {
-                val outFile = File(context.filesDir, entry.name)
+                val outFile = File(targetDir, entry.name)
+                if (!outFile.canonicalPath.startsWith(targetDir.canonicalPath)) {
+                    throw SecurityException("Zip entry outside target: ${entry.name}")
+                }
                 if (entry.isDirectory) {
                     outFile.mkdirs()
                 } else {

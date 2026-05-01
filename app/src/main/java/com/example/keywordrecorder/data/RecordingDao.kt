@@ -20,6 +20,9 @@ interface RecordingDao {
     @Query("SELECT * FROM recordings WHERE id = :id")
     suspend fun getById(id: Long): RecordingEntity?
 
+    @Query("SELECT * FROM recordings WHERE id = :id")
+    fun observeById(id: Long): Flow<RecordingEntity?>
+
     @Query("SELECT * FROM recordings WHERE transcriptionStatus = 'PENDING' AND deleted = 0")
     suspend fun getPending(): List<RecordingEntity>
 
@@ -29,6 +32,12 @@ interface RecordingDao {
     @Query("UPDATE recordings SET deleted = 1 WHERE id = :id")
     suspend fun softDelete(id: Long)
 
+    @Query("UPDATE recordings SET deleted = 1")
+    suspend fun deleteAll()
+
     @Query("SELECT * FROM recordings WHERE transcriptionStatus IN ('PENDING','FAILED') AND deleted = 0 AND retryCount < :maxRetry")
     suspend fun getRetryable(maxRetry: Int): List<RecordingEntity>
+
+    @Query("UPDATE recordings SET transcriptionStatus = :status, transcriptText = COALESCE(:text, transcriptText), transcribedAtEpochMillis = CASE WHEN :text IS NOT NULL THEN :now ELSE transcribedAtEpochMillis END, lastErrorMessage = :error, retryCount = CASE WHEN :status = 'FAILED' THEN retryCount + 1 ELSE retryCount END WHERE id = :id")
+    suspend fun updateStatusAtomic(id: Long, status: String, text: String?, error: String?, now: Long)
 }

@@ -44,9 +44,9 @@ class SettingsDataStore(private val context: Context) {
     val settings: Flow<AppSettings> = context.dataStore.data.map { prefs ->
         AppSettings(
             wakeKeyword = prefs[Keys.WAKE_KEYWORD] ?: "keyword",
-            transcriptionMode = TranscriptionMode.valueOf(
-                prefs[Keys.TRANSCRIPTION_MODE] ?: TranscriptionMode.IMMEDIATE.name
-            ),
+            transcriptionMode = prefs[Keys.TRANSCRIPTION_MODE]?.let { name ->
+                TranscriptionMode.entries.find { it.name == name }
+            } ?: TranscriptionMode.IMMEDIATE,
             maxRecordingSeconds = prefs[Keys.MAX_RECORDING_SECONDS] ?: 30,
             silenceTimeoutSeconds = prefs[Keys.SILENCE_TIMEOUT_SECONDS] ?: 2,
             dailyTranscriptionHour = prefs[Keys.DAILY_TRANSCRIPTION_HOUR] ?: 21,

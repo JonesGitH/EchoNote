@@ -39,9 +39,9 @@ object ListeningNotification {
         )
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setContentTitle(context.getString(com.example.keywordrecorder.R.string.notification_listening))
-            .setSmallIcon(android.R.drawable.ic_btn_speak_now)
+            .setSmallIcon(com.example.keywordrecorder.R.drawable.ic_notif_mic)
             .setContentIntent(openIntent)
-            .addAction(android.R.drawable.ic_media_pause,
+            .addAction(com.example.keywordrecorder.R.drawable.ic_notif_mic,
                 context.getString(com.example.keywordrecorder.R.string.notification_stop),
                 stopIntent)
             .setOngoing(true)

@@ -8,5 +8,5 @@ class RoomConverters {
 
     @TypeConverter
     fun toTranscriptionStatus(value: String): TranscriptionStatus =
-        TranscriptionStatus.valueOf(value)
+        TranscriptionStatus.entries.find { it.name == value } ?: TranscriptionStatus.PENDING
 }

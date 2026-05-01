@@ -3,6 +3,7 @@ package com.example.keywordrecorder.service
 import android.app.Service
 import android.content.Intent
 import android.os.IBinder
+import android.util.Log
 import com.example.keywordrecorder.KeywordRecorderApp
 import com.example.keywordrecorder.audio.VoskWakeWordDetector
 import com.example.keywordrecorder.data.TranscriptionMode
@@ -33,11 +34,10 @@ class KeywordListeningService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        when (intent?.action) {
-            ACTION_STOP -> stopSelf()
-            else -> startListening()
+        return when (intent?.action) {
+            ACTION_STOP -> { stopSelf(); START_NOT_STICKY }
+            else -> { startListening(); START_STICKY }
         }
-        return START_STICKY
     }
 
     private fun startListening() {
@@ -49,51 +49,56 @@ class KeywordListeningService : Service() {
                 while (isActive) {
                     val settings = app.settingsDataStore.settings.first()
                     val detector = VoskWakeWordDetector(app.modelManager, settings.wakeKeyword)
-                    detector.start()
-                    ListenerStateBus.emit(ListenerState.LISTENING)
-
-                    detector.awaitWakeWord()
-                    if (!isActive) break
-
-                    ListenerStateBus.emit(ListenerState.WAKE_WORD_DETECTED)
-                    val freshSettings = app.settingsDataStore.settings.first()
-                    ListenerStateBus.emit(ListenerState.RECORDING)
-
-                    val recorder = app.audioRecorder
-                    recorder.startRecording()
-
-                    val maxMs = freshSettings.maxRecordingSeconds * 1000L
-                    val silenceMs = freshSettings.silenceTimeoutSeconds * 1000L
-                    val recordStart = System.currentTimeMillis()
-                    var silenceStart: Long? = null
-
                     try {
-                        while (isActive) {
-                            delay(200)
-                            val amplitude = recorder.getMaxAmplitude()
-                            val elapsed = System.currentTimeMillis() - recordStart
-                            if (elapsed >= maxMs) break
-                            if (amplitude < SILENCE_AMPLITUDE_THRESHOLD) {
-                                val ss = silenceStart ?: run { silenceStart = System.currentTimeMillis(); System.currentTimeMillis() }
-                                if ((System.currentTimeMillis() - ss) >= silenceMs) break
-                            } else {
-                                silenceStart = null
+                        detector.start()
+                        ListenerStateBus.emit(ListenerState.LISTENING)
+
+                        detector.awaitWakeWord()
+                        if (!isActive) break
+
+                        ListenerStateBus.emit(ListenerState.WAKE_WORD_DETECTED)
+                        val freshSettings = app.settingsDataStore.settings.first()
+                        ListenerStateBus.emit(ListenerState.RECORDING)
+
+                        val recorder = app.audioRecorder
+                        recorder.startRecording()
+
+                        val maxMs = freshSettings.maxRecordingSeconds * 1000L
+                        val silenceMs = freshSettings.silenceTimeoutSeconds * 1000L
+                        val recordStart = System.currentTimeMillis()
+                        var silenceStart: Long? = null
+
+                        try {
+                            while (isActive) {
+                                delay(200)
+                                val amplitude = recorder.getMaxAmplitude()
+                                val elapsed = System.currentTimeMillis() - recordStart
+                                if (elapsed >= maxMs) break
+                                if (amplitude < SILENCE_AMPLITUDE_THRESHOLD) {
+                                    val ss = silenceStart ?: run { silenceStart = System.currentTimeMillis(); System.currentTimeMillis() }
+                                    if ((System.currentTimeMillis() - ss) >= silenceMs) break
+                                } else {
+                                    silenceStart = null
+                                }
+                            }
+                        } finally {
+                            withContext(NonCancellable) {
+                                val result = recorder.stopRecording()
+                                val id = app.recordingRepository.insertRecording(result)
+                                if (freshSettings.transcriptionMode == TranscriptionMode.IMMEDIATE) {
+                                    TranscriptionScheduler.enqueueImmediate(applicationContext, id)
+                                }
                             }
                         }
                     } finally {
-                        withContext(NonCancellable) {
-                            val result = recorder.stopRecording()
-                            val id = app.recordingRepository.insertRecording(result)
-                            if (freshSettings.transcriptionMode == TranscriptionMode.IMMEDIATE) {
-                                TranscriptionScheduler.enqueueImmediate(applicationContext, id)
-                            }
-                        }
+                        detector.stop()
                     }
-
-                    detector.stop()
                     ListenerStateBus.emit(ListenerState.LISTENING)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
+                Log.e("KeywordListeningService", "Listener failed: ${e.javaClass.simpleName}: ${e.message}", e)
                 ListenerStateBus.emit(ListenerState.ERROR)
             }
         }

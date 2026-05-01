@@ -21,20 +21,15 @@ class RecordingRepository(private val dao: RecordingDao) {
 
     suspend fun getById(id: Long): RecordingEntity? = dao.getById(id)
 
+    fun observeById(id: Long): Flow<RecordingEntity?> = dao.observeById(id)
+
     suspend fun updateStatus(id: Long, status: TranscriptionStatus, text: String? = null, error: String? = null) {
-        val entity = dao.getById(id) ?: return
-        dao.update(
-            entity.copy(
-                transcriptionStatus = status,
-                transcriptText = text ?: entity.transcriptText,
-                transcribedAtEpochMillis = if (text != null) System.currentTimeMillis() else entity.transcribedAtEpochMillis,
-                lastErrorMessage = error,
-                retryCount = if (status == TranscriptionStatus.FAILED) entity.retryCount + 1 else entity.retryCount
-            )
-        )
+        dao.updateStatusAtomic(id, status.name, text, error, System.currentTimeMillis())
     }
 
     suspend fun getPending(): List<RecordingEntity> = dao.getPending()
+
+    suspend fun deleteAll() = dao.deleteAll()
 
     suspend fun getCompletedSince(sinceEpochMillis: Long): List<RecordingEntity> =
         dao.getCompletedSince(sinceEpochMillis)

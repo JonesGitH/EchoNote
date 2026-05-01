@@ -1,6 +1,7 @@
 package com.example.keywordrecorder.domain
 
 import com.example.keywordrecorder.data.TranscriptionStatus
+import kotlin.coroutines.cancellation.CancellationException
 
 class TranscriptionRepository(
     private val recordingRepository: RecordingRepository,
@@ -13,6 +14,9 @@ class TranscriptionRepository(
             val result = engine.transcribe(entity.filePath)
             val text = result.text.ifBlank { "[No speech detected]" }
             recordingRepository.updateStatus(recordingId, TranscriptionStatus.COMPLETED, text = text)
+        } catch (e: CancellationException) {
+            recordingRepository.updateStatus(recordingId, TranscriptionStatus.PENDING)
+            throw e
         } catch (e: Exception) {
             recordingRepository.updateStatus(
                 recordingId,

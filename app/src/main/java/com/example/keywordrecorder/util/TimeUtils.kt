@@ -1,16 +1,21 @@
 package com.example.keywordrecorder.util
 
-import java.text.SimpleDateFormat
-import java.util.*
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 object TimeUtils {
-    private val timeFormat = SimpleDateFormat("h:mm a", Locale.US)
-    private val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
-    private val fullFormat = SimpleDateFormat("MMM d, yyyy h:mm a", Locale.US)
+    private val timeFormat = DateTimeFormatter.ofPattern("h:mm a", Locale.US)
+    private val dateFormat = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.US)
+    private val fullFormat = DateTimeFormatter.ofPattern("MMM d, yyyy h:mm a", Locale.US)
 
-    fun formatEpoch(epochMillis: Long): String = timeFormat.format(Date(epochMillis))
-    fun formatDate(epochMillis: Long): String = dateFormat.format(Date(epochMillis))
-    fun formatFull(epochMillis: Long): String = fullFormat.format(Date(epochMillis))
+    private fun toLocal(epochMillis: Long) =
+        Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault())
+
+    fun formatEpoch(epochMillis: Long): String = timeFormat.format(toLocal(epochMillis))
+    fun formatDate(epochMillis: Long): String = dateFormat.format(toLocal(epochMillis))
+    fun formatFull(epochMillis: Long): String = fullFormat.format(toLocal(epochMillis))
 
     fun formatDuration(durationMillis: Long): String {
         val totalSeconds = durationMillis / 1000
