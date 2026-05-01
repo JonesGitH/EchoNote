@@ -10,6 +10,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 
+class RecordingsViewModel(app: Application) : AndroidViewModel(app) {
+    private val application = app as KeywordRecorderApp
 
+    val recordings: StateFlow<List<RecordingEntity>> =
+        application.recordingRepository.observeAll()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    val summaries: StateFlow<List<DailySummaryEntity>> =
+        application.dailySummaryRepository.observeAll()
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 }

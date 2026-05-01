@@ -10,7 +10,10 @@ import com.example.keywordrecorder.ui.navigation.AppNavGraph
 import com.example.keywordrecorder.ui.theme.KeywordRecorderTheme
 
 class MainActivity : ComponentActivity() {
+
     private val permissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { /* permissions handled inline in UI */ }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -20,8 +23,13 @@ class MainActivity : ComponentActivity() {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 add(Manifest.permission.POST_NOTIFICATIONS)
             }
-
         }
+        permissionLauncher.launch(permissions.toTypedArray())
+
+        setContent {
+            KeywordRecorderTheme {
+                AppNavGraph()
+            }
         }
     }
 }

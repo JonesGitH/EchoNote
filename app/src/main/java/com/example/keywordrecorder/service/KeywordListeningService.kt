@@ -8,45 +8,100 @@ import com.example.keywordrecorder.audio.VoskWakeWordDetector
 import com.example.keywordrecorder.data.TranscriptionMode
 import com.example.keywordrecorder.notification.ListeningNotification
 import com.example.keywordrecorder.worker.TranscriptionScheduler
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.first
 
 class KeywordListeningService : Service() {
+
+    companion object {
+        const val ACTION_START = "com.example.keywordrecorder.START"
+        const val ACTION_STOP = "com.example.keywordrecorder.STOP"
+        private const val SILENCE_AMPLITUDE_THRESHOLD = 500
+    }
+
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     private var listeningJob: Job? = null
+
+    override fun onBind(intent: Intent?): IBinder? = null
+
+    override fun onCreate() {
+        super.onCreate()
+        startForeground(
+            ListeningNotification.NOTIFICATION_ID,
+            ListeningNotification.build(this)
+        )
+    }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
+            ACTION_STOP -> stopSelf()
             else -> startListening()
         }
         return START_STICKY
     }
 
     private fun startListening() {
+        if (listeningJob?.isActive == true) return
         listeningJob = scope.launch {
+            ListenerStateBus.emit(ListenerState.STARTING)
             val app = application as KeywordRecorderApp
-            while (isActive) {
-                detector.awaitWakeWord()
-                if (!isActive) break
+            try {
+                while (isActive) {
+                    val settings = app.settingsDataStore.settings.first()
+                    val detector = VoskWakeWordDetector(app.modelManager, settings.wakeKeyword)
+                    detector.start()
+                    ListenerStateBus.emit(ListenerState.LISTENING)
 
-                recorder.startRecording()
+                    detector.awaitWakeWord()
+                    if (!isActive) break
 
-                try {
-                        delay(200)
-                        } else {
+                    ListenerStateBus.emit(ListenerState.WAKE_WORD_DETECTED)
+                    val freshSettings = app.settingsDataStore.settings.first()
+                    ListenerStateBus.emit(ListenerState.RECORDING)
+
+                    val recorder = app.audioRecorder
+                    recorder.startRecording()
+
+                    val maxMs = freshSettings.maxRecordingSeconds * 1000L
+                    val silenceMs = freshSettings.silenceTimeoutSeconds * 1000L
+                    val recordStart = System.currentTimeMillis()
+                    var silenceStart: Long? = null
+
+                    try {
+                        while (isActive) {
+                            delay(200)
+                            val amplitude = recorder.getMaxAmplitude()
+                            val elapsed = System.currentTimeMillis() - recordStart
+                            if (elapsed >= maxMs) break
+                            if (amplitude < SILENCE_AMPLITUDE_THRESHOLD) {
+                                val ss = silenceStart ?: run { silenceStart = System.currentTimeMillis(); System.currentTimeMillis() }
+                                if ((System.currentTimeMillis() - ss) >= silenceMs) break
+                            } else {
+                                silenceStart = null
+                            }
+                        }
+                    } finally {
+                        withContext(NonCancellable) {
+                            val result = recorder.stopRecording()
+                            val id = app.recordingRepository.insertRecording(result)
+                            if (freshSettings.transcriptionMode == TranscriptionMode.IMMEDIATE) {
+                                TranscriptionScheduler.enqueueImmediate(applicationContext, id)
+                            }
                         }
                     }
-                } finally {
-                    withContext(NonCancellable) {
-                        val result = recorder.stopRecording()
-                        val id = app.recordingRepository.insertRecording(result)
-                    }
+
+                    detector.stop()
+                    ListenerStateBus.emit(ListenerState.LISTENING)
                 }
+            } catch (e: Exception) {
+                ListenerStateBus.emit(ListenerState.ERROR)
             }
-        }
-    }
         }
     }
 
     override fun onDestroy() {
+        scope.cancel()
+        ListenerStateBus.emit(ListenerState.STOPPED)
         super.onDestroy()
     }
 }

@@ -8,4 +8,6 @@ class DailySummaryRepository(private val dao: DailySummaryDao) {
     fun observeAll(): Flow<List<DailySummaryEntity>> = dao.observeAll()
 
     suspend fun insert(summary: DailySummaryEntity): Long = dao.insert(summary)
+
+    suspend fun getById(id: Long): DailySummaryEntity? = dao.getById(id)
 }
