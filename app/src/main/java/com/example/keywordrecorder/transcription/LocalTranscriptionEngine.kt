@@ -5,7 +5,5 @@ import com.example.keywordrecorder.domain.TranscriptionResult
 
 class LocalTranscriptionEngine : TranscriptionEngine {
     override suspend fun transcribe(filePath: String): TranscriptionResult {
-        // TODO: Wire Whisper.cpp or Vosk local model integration.
-        throw UnsupportedOperationException("Local transcription not configured")
     }
 }

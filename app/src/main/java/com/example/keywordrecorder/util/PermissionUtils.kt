@@ -7,5 +7,4 @@ import androidx.core.content.ContextCompat
 
 object PermissionUtils {
     fun hasRecordAudio(context: Context): Boolean =
-        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED
 }

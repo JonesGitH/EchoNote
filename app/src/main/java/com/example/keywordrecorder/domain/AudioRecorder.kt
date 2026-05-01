@@ -1,6 +1,5 @@
 package com.example.keywordrecorder.domain
 
-data class RecordingSession(val startedAtMillis: Long)
 
 data class RecordingResult(
     val filePath: String,
@@ -9,6 +8,4 @@ data class RecordingResult(
 )
 
 interface AudioRecorder {
-    suspend fun startRecording(): RecordingSession
-    suspend fun stopRecording(): RecordingResult
 }

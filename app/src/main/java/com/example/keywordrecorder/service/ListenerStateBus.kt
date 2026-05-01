@@ -4,10 +4,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 object ListenerStateBus {
-    private val _state = MutableStateFlow(ListenerState.IDLE)
     val state: StateFlow<ListenerState> = _state
 
-    fun update(listenerState: ListenerState) {
-        _state.value = listenerState
-    }
 }
