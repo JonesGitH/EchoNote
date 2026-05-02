@@ -4,6 +4,8 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -15,7 +17,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.keywordrecorder.data.DailySummaryEntity
 import com.example.keywordrecorder.data.RecordingEntity
 import com.example.keywordrecorder.data.TranscriptionStatus
-import com.example.keywordrecorder.ui.components.DeleteAllConfirmationDialog
 import com.example.keywordrecorder.ui.home.WaveformBars
 import com.example.keywordrecorder.ui.theme.*
 import com.example.keywordrecorder.util.TimeUtils
@@ -27,107 +28,82 @@ fun RecordingsScreen(
 ) {
     val recordings by vm.recordings.collectAsStateWithLifecycle()
     val summaries by vm.summaries.collectAsStateWithLifecycle()
-    var showDeleteConfirmation by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = EchoBg) {
         LazyColumn(
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 4.dp, vertical = 4.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
-                            Text(
-                                "All Recordings",
-                                style = MaterialTheme.typography.headlineLarge,
-                                color = EchoTextPrimary
-                            )
-                            Text(
-                                "${recordings.size} notes",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = EchoTextSecondary
-                            )
-                        }
-
-                        if (recordings.isNotEmpty()) {
-                            TextButton(
-                                onClick = { showDeleteConfirmation = true },
-                                colors = ButtonDefaults.textButtonColors(contentColor = EchoRed)
-                            ) {
-                                Text("Delete All", fontWeight = FontWeight.SemiBold)
-                            }
-                        }
-                    }
-                }
-
-                if (summaries.isNotEmpty()) {
-                    item {
-                        Text(
-                            "Daily Summaries",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = EchoTextSecondary,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 4.dp)
-                        )
-                    }
-                    items(summaries, key = { it.id }) { summary ->
-                        SummaryCard(summary)
-                    }
-                }
-
-                if (recordings.isNotEmpty()) {
-                    item {
-                        Text(
-                            "Notes",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = EchoTextSecondary,
-                            modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 4.dp)
-                        )
-                    }
-                    items(recordings, key = { it.id }) { rec ->
-                        RecordingListCard(rec, onClick = { onOpenDetail(rec.id) })
-                    }
-                }
-
-                if (recordings.isEmpty() && summaries.isEmpty()) {
-                    item {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 64.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            Text("🎙", style = MaterialTheme.typography.displayLarge)
-                            Text(
-                                "No recordings yet",
-                                style = MaterialTheme.typography.headlineSmall,
-                                color = EchoTextPrimary
-                            )
-                            Text(
-                                "Say your wake keyword to start recording",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = EchoTextSecondary
-                            )
-                        }
-                    }
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            item {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "All Recordings",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = EchoTextPrimary
+                    )
+                    Text(
+                        "${recordings.size} notes",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = EchoTextSecondary
+                    )
                 }
             }
 
-        if (showDeleteConfirmation) {
-            DeleteAllConfirmationDialog(
-                onConfirm = {
-                    vm.deleteAllRecordings()
-                    showDeleteConfirmation = false
-                },
-                onDismiss = { showDeleteConfirmation = false }
-            )
+            if (summaries.isNotEmpty()) {
+                item {
+                    Text(
+                        "Daily Summaries",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = EchoTextSecondary,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 4.dp)
+                    )
+                }
+                items(summaries, key = { it.id }) { summary ->
+                    SummaryCard(summary)
+                }
+            }
+
+            if (recordings.isNotEmpty()) {
+                item {
+                    Text(
+                        "Notes",
+                        style = MaterialTheme.typography.titleMedium,
+                        color = EchoTextSecondary,
+                        modifier = Modifier.padding(top = 8.dp, bottom = 4.dp, start = 4.dp)
+                    )
+                }
+                items(recordings, key = { it.id }) { rec ->
+                    RecordingListCard(rec, onClick = { onOpenDetail(rec.id) })
+                }
+            }
+
+            if (recordings.isEmpty() && summaries.isEmpty()) {
+                item {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 64.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = null,
+                            tint = EchoAccent,
+                            modifier = Modifier.size(48.dp)
+                        )
+                        Text("No recordings yet", style = MaterialTheme.typography.headlineSmall, color = EchoTextPrimary)
+                        Text(
+                            "Say your wake keyword to start recording",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = EchoTextSecondary
+                        )
+                    }
+                }
+            }
         }
     }
 }
@@ -176,7 +152,9 @@ private fun RecordingListCard(recording: RecordingEntity, onClick: () -> Unit) {
         TranscriptionStatus.FAILED     -> listOf(EchoRed)
         TranscriptionStatus.SKIPPED    -> listOf(EchoTextTertiary)
     }
-    val snippet = recording.transcriptText?.take(70)?.let { "\"$it…\"" } ?: "No transcript"
+    val snippet = recording.transcriptText?.let { t ->
+        if (t.length > 70) "\"${t.take(70)}…\"" else "\"$t\""
+    } ?: "No transcript"
     val duration = TimeUtils.formatDuration(recording.durationMillis)
     val time = TimeUtils.formatEpoch(recording.createdAtEpochMillis)
 

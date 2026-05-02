@@ -2,27 +2,28 @@ package com.example.keywordrecorder.worker
 
 import android.content.Context
 import androidx.work.*
-import java.time.Duration
 import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
+import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 object TranscriptionScheduler {
 
     fun scheduleBatchTranscription(context: Context, hour: Int, minute: Int) {
-        val delay = computeNextDelayMillis(hour, minute)
+        val delay = millisUntil(hour, minute)
         val request = PeriodicWorkRequestBuilder<ScheduledTranscriptionWorker>(1, TimeUnit.DAYS)
             .setInitialDelay(delay, TimeUnit.MILLISECONDS)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
             "scheduled_batch_transcription",
-            ExistingPeriodicWorkPolicy.UPDATE,
+            ExistingPeriodicWorkPolicy.KEEP,
             request
         )
     }
 
     fun scheduleDailySummary(context: Context) {
-        val delay = computeNextDelayMillis(22, 0)
+        val delay = millisUntil(22, 0)
         val request = PeriodicWorkRequestBuilder<DailySummaryWorker>(1, TimeUnit.DAYS)
             .setInitialDelay(delay, TimeUnit.MILLISECONDS)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
@@ -59,17 +60,12 @@ object TranscriptionScheduler {
         )
     }
 
-    fun computeNextDelayMillis(
-        hour: Int,
-        minute: Int,
-        now: LocalDateTime = LocalDateTime.now()
-    ): Long {
-        val target = now.withHour(hour).withMinute(minute).withSecond(0).withNano(0)
-        val finalTarget = if (target.isBefore(now)) {
-            target.plusDays(1)
-        } else {
-            target
-        }
-        return Duration.between(now, finalTarget).toMillis()
+    fun computeNextDelayMillis(hour: Int, minute: Int, now: LocalDateTime = LocalDateTime.now()): Long {
+        var target = now.toLocalDate().atTime(hour, minute)
+        if (!target.isAfter(now)) target = target.plusDays(1)
+        return ChronoUnit.MILLIS.between(now, target)
     }
+
+    private fun millisUntil(hour: Int, minute: Int): Long =
+        computeNextDelayMillis(hour, minute)
 }

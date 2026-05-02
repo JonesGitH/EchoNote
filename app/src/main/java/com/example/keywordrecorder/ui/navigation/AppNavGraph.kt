@@ -3,7 +3,6 @@ package com.example.keywordrecorder.ui.navigation
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.List
 import androidx.compose.material.icons.filled.Settings
@@ -35,7 +34,7 @@ private sealed class Screen(val route: String, val label: String, val icon: Imag
     object Home       : Screen("home",       "Notes",       Icons.Default.Home)
     object Recordings : Screen("recordings", "Recordings",  Icons.Default.List)
     object Settings   : Screen("settings",   "Settings",    Icons.Default.Settings)
-    object Detail     : Screen("detail/{id}", "Detail",     Icons.Default.Description)
+    object Detail     : Screen("detail/{id}", "Detail",     Icons.Default.Home)
 }
 
 @Composable
@@ -71,11 +70,7 @@ fun AppNavGraph() {
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(Screen.Home.route) {
-                HomeScreen(
-                    onOpenSettings = { navController.navigate(Screen.Settings.route) },
-                    onOpenRecordings = { navController.navigate(Screen.Recordings.route) },
-                    onOpenDetail = { id -> navController.navigate("detail/$id") }
-                )
+                HomeScreen(onOpenDetail = { id -> navController.navigate("detail/$id") })
             }
             composable(Screen.Recordings.route) {
                 RecordingsScreen(onOpenDetail = { id -> navController.navigate("detail/$id") })
@@ -84,9 +79,8 @@ fun AppNavGraph() {
                 route = Screen.Detail.route,
                 arguments = listOf(navArgument("id") { type = NavType.LongType })
             ) { backStackEntry ->
-                val id = backStackEntry.arguments?.getLong("id") ?: return@composable
                 RecordingDetailScreen(
-                    recordingId = id,
+                    recordingId = backStackEntry.arguments!!.getLong("id"),
                     onBack = { navController.popBackStack() }
                 )
             }

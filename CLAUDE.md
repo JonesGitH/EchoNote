@@ -128,15 +128,13 @@ Only three settings have UI controls: `wakeKeyword`, `transcriptionMode`, and da
 
 - Service type: `microphone` — required for background mic on Android 10+
 - Notification channel: `keyword_listening`, importance LOW
-- `BootReceiver` restarts the service on `BOOT_COMPLETED`
-- The service auto-starts from `KeywordRecorderApp.onCreate` — no manual tap needed
+- `BootReceiver` is a no-op — listening is user-initiated only
+- The service does NOT auto-start; user must tap the record button on the Home screen
 
 ## Known Issues / TODOs
 
 - `PorcupineWakeWordDetector` — all stubs, not integrated
 - `CloudTranscriptionEngine` / `LocalTranscriptionEngine` — throw `UnsupportedOperationException`
-- `SilenceDetector.kt` — dead code, never called
-- `RecordingDetailScreen.play()` — creates a `MediaPlayer` without releasing it (audio resource leak)
 - Several settings have no UI: `silenceTimeoutSeconds`, `retryFailed`, `onlyWifi`, `onlyCharging`, `deleteAudioAfterTranscription`
 
 ## What NOT to Do

@@ -2,8 +2,8 @@ package com.example.keywordrecorder.ui.home
 
 import android.app.Application
 import android.content.Intent
+import android.os.Build
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
 import com.example.keywordrecorder.KeywordRecorderApp
 import com.example.keywordrecorder.audio.ModelState
 import com.example.keywordrecorder.service.KeywordListeningService
@@ -12,8 +12,6 @@ import com.example.keywordrecorder.service.ListenerStateBus
 import com.example.keywordrecorder.util.PermissionUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val application = app as KeywordRecorderApp
@@ -21,35 +19,51 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     val listenerState: StateFlow<ListenerState> = ListenerStateBus.state
     val modelState: StateFlow<ModelState> = application.modelManager.state
 
-    private val _requestAudioPermission = MutableStateFlow(false)
-    val requestAudioPermission: StateFlow<Boolean> = _requestAudioPermission.asStateFlow()
-
-    fun onPermissionRequestHandled() { _requestAudioPermission.value = false }
+    private val _needsPermission = MutableStateFlow(false)
+    val needsPermission: StateFlow<Boolean> = _needsPermission
 
     fun toggleListening() {
-        val currentState = listenerState.value
-        if (currentState == ListenerState.STOPPED || currentState == ListenerState.ERROR) {
-            if (!PermissionUtils.hasRecordAudio(application)) {
-                _requestAudioPermission.value = true
+        val context = getApplication<Application>()
+        val current = listenerState.value
+
+        if (current == ListenerState.STOPPED || current == ListenerState.ERROR) {
+            if (!PermissionUtils.hasRecordAudio(context)) {
+                _needsPermission.value = true
                 return
             }
-            startService()
+            val intent = Intent(context, KeywordListeningService::class.java).apply {
+                action = KeywordListeningService.ACTION_START
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
         } else {
-            stopService()
+            val intent = Intent(context, KeywordListeningService::class.java).apply {
+                action = KeywordListeningService.ACTION_STOP
+            }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                context.startForegroundService(intent)
+            } else {
+                context.startService(intent)
+            }
         }
     }
 
-    private fun startService() {
-        val intent = Intent(application, KeywordListeningService::class.java).apply {
-            action = KeywordListeningService.ACTION_START
-        }
-        application.startForegroundService(intent)
-    }
-
-    private fun stopService() {
-        val intent = Intent(application, KeywordListeningService::class.java).apply {
+    fun stopListening() {
+        val context = getApplication<Application>()
+        val intent = Intent(context, KeywordListeningService::class.java).apply {
             action = KeywordListeningService.ACTION_STOP
         }
-        application.startForegroundService(intent)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            context.startForegroundService(intent)
+        } else {
+            context.startService(intent)
+        }
+    }
+
+    fun onPermissionHandled() {
+        _needsPermission.value = false
     }
 }

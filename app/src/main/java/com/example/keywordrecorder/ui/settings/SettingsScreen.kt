@@ -3,19 +3,20 @@ package com.example.keywordrecorder.ui.settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.keywordrecorder.data.TranscriptionMode
-import com.example.keywordrecorder.ui.components.DeleteAllConfirmationDialog
 import com.example.keywordrecorder.ui.theme.*
 import com.example.keywordrecorder.util.TimeUtils
 import kotlin.math.roundToInt
@@ -24,7 +25,6 @@ import kotlin.math.roundToInt
 fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     var keywordInput by remember(settings.wakeKeyword) { mutableStateOf(settings.wakeKeyword) }
-    var showDeleteConfirmation by remember { mutableStateOf(false) }
 
     Surface(modifier = Modifier.fillMaxSize(), color = EchoBg) {
         Column(
@@ -153,7 +153,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                     value = settings.maxRecordingSeconds.toFloat(),
                     onValueChange = { vm.updateMaxRecordingSeconds(it.roundToInt()) },
                     valueRange = 30f..300f,
-                    steps = 269,
+                    steps = 26,
                     modifier = Modifier.fillMaxWidth(),
                     colors = SliderDefaults.colors(
                         thumbColor = EchoAccent,
@@ -172,35 +172,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                 }
             }
 
-            SettingsSection(title = "Data Management") {
-                Text(
-                    "Clear your recording history. This action cannot be undone.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = EchoTextSecondary
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                OutlinedButton(
-                    onClick = { showDeleteConfirmation = true },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = EchoRed),
-                    border = ButtonDefaults.outlinedButtonBorder.copy(brush = androidx.compose.ui.graphics.SolidColor(EchoRed)),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text("Delete All Recordings", fontWeight = FontWeight.SemiBold)
-                }
-            }
-
             Spacer(modifier = Modifier.height(32.dp))
-        }
-
-        if (showDeleteConfirmation) {
-            DeleteAllConfirmationDialog(
-                onConfirm = {
-                    vm.deleteAllRecordings()
-                    showDeleteConfirmation = false
-                },
-                onDismiss = { showDeleteConfirmation = false }
-            )
         }
     }
 }
@@ -252,6 +224,7 @@ private fun DailyTimeSection(hour: Int, minute: Int, onSave: (Int, Int) -> Unit)
                 singleLine = true,
                 modifier = Modifier.width(72.dp),
                 shape = RoundedCornerShape(10.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = EchoAccent,
                     unfocusedBorderColor = EchoBorder,
@@ -271,6 +244,7 @@ private fun DailyTimeSection(hour: Int, minute: Int, onSave: (Int, Int) -> Unit)
                 singleLine = true,
                 modifier = Modifier.width(72.dp),
                 shape = RoundedCornerShape(10.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = EchoAccent,
                     unfocusedBorderColor = EchoBorder,
