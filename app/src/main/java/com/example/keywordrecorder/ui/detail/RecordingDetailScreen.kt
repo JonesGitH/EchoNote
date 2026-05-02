@@ -47,6 +47,13 @@ fun RecordingDetailScreen(
     LaunchedEffect(recordingId) { vm.load(recordingId) }
     val recording by vm.recording.collectAsStateWithLifecycle()
 
+    // If the recording is deleted externally while this screen is open, go back.
+    val hasLoaded = remember { mutableStateOf(false) }
+    LaunchedEffect(recording) {
+        if (recording != null) hasLoaded.value = true
+        else if (hasLoaded.value) onBack()
+    }
+
     var showDeleteDialog by remember { mutableStateOf(false) }
     var playbackProgress by remember { mutableFloatStateOf(0f) }
     var isPlaying by remember { mutableStateOf(false) }
@@ -54,6 +61,7 @@ fun RecordingDetailScreen(
 
     DisposableEffect(Unit) {
         onDispose {
+            player?.stop()
             player?.release()
             player = null
         }
@@ -198,6 +206,7 @@ fun RecordingDetailScreen(
                             }
                         },
                         onStop = {
+                            player?.stop()
                             player?.release()
                             player = null
                             isPlaying = false
@@ -237,6 +246,7 @@ fun RecordingDetailScreen(
                 Button(
                     onClick = {
                         showDeleteDialog = false
+                        player?.stop()
                         player?.release()
                         player = null
                         isPlaying = false

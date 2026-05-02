@@ -17,10 +17,10 @@ interface RecordingDao {
     @Query("SELECT * FROM recordings WHERE deleted = 0 ORDER BY createdAtEpochMillis DESC")
     fun observeAll(): Flow<List<RecordingEntity>>
 
-    @Query("SELECT * FROM recordings WHERE id = :id")
+    @Query("SELECT * FROM recordings WHERE id = :id AND deleted = 0")
     suspend fun getById(id: Long): RecordingEntity?
 
-    @Query("SELECT * FROM recordings WHERE id = :id")
+    @Query("SELECT * FROM recordings WHERE id = :id AND deleted = 0")
     fun observeById(id: Long): Flow<RecordingEntity?>
 
     @Query("SELECT * FROM recordings WHERE transcriptionStatus = 'PENDING' AND deleted = 0")
@@ -31,6 +31,12 @@ interface RecordingDao {
 
     @Query("UPDATE recordings SET deleted = 1 WHERE id = :id")
     suspend fun softDelete(id: Long)
+
+    @Query("UPDATE recordings SET deleted = 0 WHERE id = :id")
+    suspend fun restoreRecording(id: Long)
+
+    @Query("SELECT filePath FROM recordings WHERE deleted = 0")
+    suspend fun getAllFilePaths(): List<String>
 
     @Query("UPDATE recordings SET deleted = 1")
     suspend fun deleteAll()

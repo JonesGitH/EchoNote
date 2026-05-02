@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.os.Build
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
 import com.example.keywordrecorder.KeywordRecorderApp
 import com.example.keywordrecorder.audio.ModelState
 import com.example.keywordrecorder.service.KeywordListeningService
@@ -11,13 +12,21 @@ import com.example.keywordrecorder.service.ListenerState
 import com.example.keywordrecorder.service.ListenerStateBus
 import com.example.keywordrecorder.util.PermissionUtils
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val application = app as KeywordRecorderApp
 
     val listenerState: StateFlow<ListenerState> = ListenerStateBus.state
     val modelState: StateFlow<ModelState> = application.modelManager.state
+
+    val wakeKeyword: StateFlow<String> = application.settingsDataStore.settings
+        .map { it.wakeKeyword }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "keyword")
 
     private val _needsPermission = MutableStateFlow(false)
     val needsPermission: StateFlow<Boolean> = _needsPermission
@@ -65,5 +74,9 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
 
     fun onPermissionHandled() {
         _needsPermission.value = false
+    }
+
+    fun retryModelDownload() = viewModelScope.launch {
+        try { application.modelManager.ensureModel() } catch (_: Exception) { /* state updated by manager */ }
     }
 }

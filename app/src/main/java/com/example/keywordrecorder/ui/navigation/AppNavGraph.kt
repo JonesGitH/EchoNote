@@ -11,6 +11,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -23,6 +25,7 @@ import androidx.navigation.navArgument
 import com.example.keywordrecorder.ui.detail.RecordingDetailScreen
 import com.example.keywordrecorder.ui.home.HomeScreen
 import com.example.keywordrecorder.ui.recordings.RecordingsScreen
+import com.example.keywordrecorder.ui.recordings.RecordingsViewModel
 import com.example.keywordrecorder.ui.settings.SettingsScreen
 import com.example.keywordrecorder.ui.theme.EchoAccent
 import com.example.keywordrecorder.ui.theme.EchoBg
@@ -46,6 +49,10 @@ fun AppNavGraph() {
     val topLevelScreens = listOf(Screen.Home, Screen.Recordings, Screen.Settings)
     val showBottomBar = currentDestination?.route != Screen.Detail.route
 
+    val recordingsVm: RecordingsViewModel = viewModel()
+    val recordings by recordingsVm.recordings.collectAsStateWithLifecycle()
+    val recordingCount = recordings.size
+
     Scaffold(
         containerColor = EchoBg,
         bottomBar = {
@@ -53,6 +60,7 @@ fun AppNavGraph() {
                 EchoNavBar(
                     screens = topLevelScreens,
                     currentDestination = currentDestination,
+                    recordingCount = recordingCount,
                     onClick = { screen ->
                         navController.navigate(screen.route) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -93,6 +101,7 @@ fun AppNavGraph() {
 private fun EchoNavBar(
     screens: List<Screen>,
     currentDestination: NavDestination?,
+    recordingCount: Int,
     onClick: (Screen) -> Unit
 ) {
     NavigationBar(
@@ -105,11 +114,30 @@ private fun EchoNavBar(
                 selected = selected,
                 onClick = { onClick(screen) },
                 icon = {
-                    Icon(
-                        imageVector = screen.icon,
-                        contentDescription = screen.label,
-                        modifier = Modifier.size(22.dp)
-                    )
+                    if (screen is Screen.Recordings && recordingCount > 0) {
+                        BadgedBox(
+                            badge = {
+                                Badge(containerColor = EchoAccent) {
+                                    Text(
+                                        if (recordingCount > 99) "99+" else recordingCount.toString(),
+                                        style = MaterialTheme.typography.labelSmall
+                                    )
+                                }
+                            }
+                        ) {
+                            Icon(
+                                imageVector = screen.icon,
+                                contentDescription = screen.label,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    } else {
+                        Icon(
+                            imageVector = screen.icon,
+                            contentDescription = screen.label,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
                 },
                 label = {
                     Text(screen.label, style = MaterialTheme.typography.labelSmall)

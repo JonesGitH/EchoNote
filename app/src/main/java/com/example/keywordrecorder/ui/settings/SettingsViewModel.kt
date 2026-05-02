@@ -31,6 +31,10 @@ class SettingsViewModel(app: Application) : AndroidViewModel(app) {
         store.updateMaxRecordingSeconds(seconds.coerceIn(30, 300))
     }
 
+    fun updateSilenceTimeoutSeconds(seconds: Int) = viewModelScope.launch {
+        store.updateSilenceTimeoutSeconds(seconds.coerceIn(1, 10))
+    }
+
     fun updateDailyTime(hour: Int, minute: Int) = viewModelScope.launch {
         store.updateDailyTranscriptionTime(hour, minute)
         TranscriptionScheduler.scheduleBatchTranscription(application, hour, minute)

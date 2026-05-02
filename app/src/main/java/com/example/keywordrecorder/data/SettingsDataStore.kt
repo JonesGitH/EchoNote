@@ -71,6 +71,10 @@ class SettingsDataStore(private val context: Context) {
         context.dataStore.edit { it[Keys.MAX_RECORDING_SECONDS] = seconds }
     }
 
+    suspend fun updateSilenceTimeoutSeconds(seconds: Int) {
+        context.dataStore.edit { it[Keys.SILENCE_TIMEOUT_SECONDS] = seconds }
+    }
+
     suspend fun updateDailyTranscriptionTime(hour: Int, minute: Int) {
         context.dataStore.edit {
             it[Keys.DAILY_TRANSCRIPTION_HOUR] = hour

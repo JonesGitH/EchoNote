@@ -1,15 +1,19 @@
 package com.example.keywordrecorder.ui.recordings
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -20,6 +24,7 @@ import com.example.keywordrecorder.data.TranscriptionStatus
 import com.example.keywordrecorder.ui.home.WaveformBars
 import com.example.keywordrecorder.ui.theme.*
 import com.example.keywordrecorder.util.TimeUtils
+import kotlinx.coroutines.launch
 
 @Composable
 fun RecordingsScreen(
@@ -28,10 +33,46 @@ fun RecordingsScreen(
 ) {
     val recordings by vm.recordings.collectAsStateWithLifecycle()
     val summaries by vm.summaries.collectAsStateWithLifecycle()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var showDeleteAllDialog by remember { mutableStateOf(false) }
 
-    Surface(modifier = Modifier.fillMaxSize(), color = EchoBg) {
+    if (showDeleteAllDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteAllDialog = false },
+            containerColor = EchoSurface,
+            shape = RoundedCornerShape(16.dp),
+            title = { Text("Delete all recordings?", color = EchoTextPrimary, style = MaterialTheme.typography.headlineSmall) },
+            text = { Text("This will permanently remove all audio files and transcripts.", color = EchoTextSecondary, style = MaterialTheme.typography.bodyMedium) },
+            confirmButton = {
+                Button(
+                    onClick = { showDeleteAllDialog = false; vm.deleteAllRecordings() },
+                    colors = ButtonDefaults.buttonColors(containerColor = EchoRed)
+                ) { Text("Delete All", color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteAllDialog = false }) {
+                    Text("Cancel", color = EchoTextSecondary)
+                }
+            }
+        )
+    }
+
+    Scaffold(
+        containerColor = EchoBg,
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = EchoSurface,
+                    contentColor = EchoTextPrimary,
+                    actionColor = EchoAccent
+                )
+            }
+        }
+    ) { innerPadding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().padding(innerPadding),
             contentPadding = PaddingValues(horizontal = 16.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
@@ -46,11 +87,26 @@ fun RecordingsScreen(
                         style = MaterialTheme.typography.headlineLarge,
                         color = EchoTextPrimary
                     )
-                    Text(
-                        "${recordings.size} notes",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = EchoTextSecondary
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            "${recordings.size} notes",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = EchoTextSecondary
+                        )
+                        if (recordings.isNotEmpty()) {
+                            IconButton(onClick = { showDeleteAllDialog = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete all recordings",
+                                    tint = EchoTextTertiary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                    }
                 }
             }
 
@@ -78,7 +134,50 @@ fun RecordingsScreen(
                     )
                 }
                 items(recordings, key = { it.id }) { rec ->
-                    RecordingListCard(rec, onClick = { onOpenDetail(rec.id) })
+                    val dismissState = rememberSwipeToDismissBoxState(
+                        confirmValueChange = { value ->
+                            if (value == SwipeToDismissBoxValue.EndToStart) {
+                                val filePath = rec.filePath
+                                vm.softDeleteRecording(rec.id)
+                                scope.launch {
+                                    val result = snackbarHostState.showSnackbar(
+                                        message = "Recording deleted",
+                                        actionLabel = "Undo",
+                                        duration = SnackbarDuration.Short
+                                    )
+                                    if (result == SnackbarResult.ActionPerformed) {
+                                        vm.restoreRecording(rec.id)
+                                    } else {
+                                        vm.deleteRecordingFile(filePath)
+                                    }
+                                }
+                                true
+                            } else false
+                        }
+                    )
+                    SwipeToDismissBox(
+                        state = dismissState,
+                        enableDismissFromStartToEnd = false,
+                        backgroundContent = {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(RoundedCornerShape(14.dp))
+                                    .background(EchoRed.copy(alpha = 0.85f))
+                                    .padding(end = 20.dp),
+                                contentAlignment = Alignment.CenterEnd
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+                    ) {
+                        RecordingListCard(rec, onClick = { onOpenDetail(rec.id) })
+                    }
                 }
             }
 

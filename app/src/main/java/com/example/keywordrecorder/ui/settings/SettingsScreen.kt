@@ -20,16 +20,32 @@ import com.example.keywordrecorder.data.TranscriptionMode
 import com.example.keywordrecorder.ui.theme.*
 import com.example.keywordrecorder.util.TimeUtils
 import kotlin.math.roundToInt
+import kotlinx.coroutines.launch
 
 @Composable
 fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
     val settings by vm.settings.collectAsStateWithLifecycle()
     var keywordInput by remember(settings.wakeKeyword) { mutableStateOf(settings.wakeKeyword) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val coroutineScope = rememberCoroutineScope()
 
-    Surface(modifier = Modifier.fillMaxSize(), color = EchoBg) {
+    Scaffold(
+        containerColor = EchoBg,
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = EchoSurface,
+                    contentColor = EchoTextPrimary,
+                    actionColor = EchoAccent
+                )
+            }
+        }
+    ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .padding(innerPadding)
                 .verticalScroll(rememberScrollState()),
         ) {
             // Header
@@ -76,7 +92,12 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                         textStyle = MaterialTheme.typography.bodyMedium
                     )
                     Button(
-                        onClick = { vm.updateKeyword(keywordInput) },
+                        onClick = {
+                            vm.updateKeyword(keywordInput)
+                            coroutineScope.launch {
+                                snackbarHostState.showSnackbar("Wake keyword saved")
+                            }
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = EchoAccent),
                         shape = RoundedCornerShape(10.dp)
                     ) {
@@ -115,6 +136,16 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                         }
                     }
                 }
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = when (settings.transcriptionMode) {
+                        TranscriptionMode.OFF       -> "Recordings are saved but never transcribed automatically."
+                        TranscriptionMode.IMMEDIATE -> "Each recording is transcribed as soon as it is captured."
+                        TranscriptionMode.DAILY     -> "All recordings are transcribed together once per day at the scheduled time."
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = EchoTextTertiary
+                )
             }
 
             if (settings.transcriptionMode == TranscriptionMode.DAILY) {
@@ -167,6 +198,53 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     listOf("30s", "1m", "2m", "3m", "4m", "5m").forEach { label ->
+                        Text(label, style = MaterialTheme.typography.labelSmall, color = EchoTextTertiary)
+                    }
+                }
+            }
+
+            SettingsSection(title = "Silence Timeout") {
+                Text(
+                    "Stop recording after this many seconds of continuous silence",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = EchoTextSecondary
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Silence cutoff", style = MaterialTheme.typography.bodyMedium, color = EchoTextSecondary)
+                    Text(
+                        "${settings.silenceTimeoutSeconds}s",
+                        style = MaterialTheme.typography.headlineSmall,
+                        color = EchoAccent,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Slider(
+                    value = settings.silenceTimeoutSeconds.toFloat(),
+                    onValueChange = { vm.updateSilenceTimeoutSeconds(it.roundToInt()) },
+                    valueRange = 1f..10f,
+                    steps = 8,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = SliderDefaults.colors(
+                        thumbColor = EchoAccent,
+                        activeTrackColor = EchoAccent,
+                        inactiveTrackColor = EchoBorder
+                    )
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    listOf("1s", "2s", "4s", "6s", "8s", "10s").forEach { label ->
                         Text(label, style = MaterialTheme.typography.labelSmall, color = EchoTextTertiary)
                     }
                 }

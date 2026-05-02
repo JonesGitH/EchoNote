@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.keywordrecorder.KeywordRecorderApp
+import kotlinx.coroutines.flow.first
 import kotlin.coroutines.cancellation.CancellationException
 
 class ScheduledTranscriptionWorker(context: Context, params: WorkerParameters) :
@@ -17,8 +18,14 @@ class ScheduledTranscriptionWorker(context: Context, params: WorkerParameters) :
             if (recordingId >= 0) {
                 app.transcriptionRepository.transcribe(recordingId)
             } else {
-                val pending = app.recordingRepository.getPending()
-                for (rec in pending) {
+                // Batch mode: process pending recordings and auto-retry eligible failures
+                val settings = app.settingsDataStore.settings.first()
+                val candidates = if (settings.retryFailed) {
+                    app.recordingRepository.getRetryable(settings.maxRetryCount)
+                } else {
+                    app.recordingRepository.getPending()
+                }
+                for (rec in candidates) {
                     try {
                         app.transcriptionRepository.transcribe(rec.id)
                     } catch (e: CancellationException) {

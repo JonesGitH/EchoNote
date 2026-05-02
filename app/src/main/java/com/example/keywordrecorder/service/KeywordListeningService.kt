@@ -45,61 +45,70 @@ class KeywordListeningService : Service() {
         listeningJob = scope.launch {
             ListenerStateBus.emit(ListenerState.STARTING)
             val app = application as KeywordRecorderApp
-            try {
-                while (isActive) {
-                    val settings = app.settingsDataStore.settings.first()
-                    val detector = VoskWakeWordDetector(app.modelManager, settings.wakeKeyword)
+            var consecutiveErrors = 0
+
+            while (isActive) {
+                val settings = app.settingsDataStore.settings.first()
+                val detector = VoskWakeWordDetector(app.modelManager, settings.wakeKeyword)
+                try {
+                    detector.start()
+                    ListenerStateBus.emit(ListenerState.LISTENING)
+
+                    detector.awaitWakeWord()
+                    if (!isActive) break
+
+                    ListenerStateBus.emit(ListenerState.WAKE_WORD_DETECTED)
+                    val freshSettings = app.settingsDataStore.settings.first()
+                    ListenerStateBus.emit(ListenerState.RECORDING)
+
+                    val recorder = app.audioRecorder
+                    recorder.startRecording()
+
+                    val maxMs = freshSettings.maxRecordingSeconds * 1000L
+                    val silenceMs = freshSettings.silenceTimeoutSeconds * 1000L
+                    val recordStart = System.currentTimeMillis()
+                    var silenceStart: Long? = null
+
                     try {
-                        detector.start()
-                        ListenerStateBus.emit(ListenerState.LISTENING)
-
-                        detector.awaitWakeWord()
-                        if (!isActive) break
-
-                        ListenerStateBus.emit(ListenerState.WAKE_WORD_DETECTED)
-                        val freshSettings = app.settingsDataStore.settings.first()
-                        ListenerStateBus.emit(ListenerState.RECORDING)
-
-                        val recorder = app.audioRecorder
-                        recorder.startRecording()
-
-                        val maxMs = freshSettings.maxRecordingSeconds * 1000L
-                        val silenceMs = freshSettings.silenceTimeoutSeconds * 1000L
-                        val recordStart = System.currentTimeMillis()
-                        var silenceStart: Long? = null
-
-                        try {
-                            while (isActive) {
-                                delay(200)
-                                val amplitude = recorder.getMaxAmplitude()
-                                val elapsed = System.currentTimeMillis() - recordStart
-                                if (elapsed >= maxMs) break
-                                if (amplitude < SILENCE_AMPLITUDE_THRESHOLD) {
-                                    val ss = silenceStart ?: run { silenceStart = System.currentTimeMillis(); System.currentTimeMillis() }
-                                    if ((System.currentTimeMillis() - ss) >= silenceMs) break
-                                } else {
-                                    silenceStart = null
-                                }
-                            }
-                        } finally {
-                            withContext(NonCancellable) {
-                                val result = recorder.stopRecording()
-                                val id = app.recordingRepository.insertRecording(result)
-                                if (freshSettings.transcriptionMode == TranscriptionMode.IMMEDIATE) {
-                                    TranscriptionScheduler.enqueueImmediate(applicationContext, id)
-                                }
+                        while (isActive) {
+                            delay(200)
+                            val amplitude = recorder.getMaxAmplitude()
+                            val elapsed = System.currentTimeMillis() - recordStart
+                            if (elapsed >= maxMs) break
+                            if (amplitude < SILENCE_AMPLITUDE_THRESHOLD) {
+                                val ss = silenceStart ?: run { silenceStart = System.currentTimeMillis(); System.currentTimeMillis() }
+                                if ((System.currentTimeMillis() - ss) >= silenceMs) break
+                            } else {
+                                silenceStart = null
                             }
                         }
                     } finally {
-                        detector.stop()
+                        withContext(NonCancellable) {
+                            val result = recorder.stopRecording()
+                            val id = app.recordingRepository.insertRecording(result)
+                            if (freshSettings.transcriptionMode == TranscriptionMode.IMMEDIATE) {
+                                TranscriptionScheduler.enqueueImmediate(applicationContext, id)
+                            }
+                        }
                     }
-                    ListenerStateBus.emit(ListenerState.LISTENING)
+                    consecutiveErrors = 0  // reset after a full cycle completes without error
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.e("KeywordListeningService", "Listen cycle failed: ${e.javaClass.simpleName}: ${e.message}", e)
+                    consecutiveErrors++
+                    if (consecutiveErrors >= 3) {
+                        Log.e("KeywordListeningService", "Too many consecutive errors — stopping listener")
+                        ListenerStateBus.emit(ListenerState.ERROR)
+                        break
+                    }
+                    val backoffMs = if (consecutiveErrors == 1) 2_000L else 5_000L
+                    ListenerStateBus.emit(ListenerState.ERROR)
+                    delay(backoffMs)
+                    if (isActive) ListenerStateBus.emit(ListenerState.STARTING)
+                } finally {
+                    detector.stop()
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.e("KeywordListeningService", "Listener failed: ${e.javaClass.simpleName}: ${e.message}", e)
-                ListenerStateBus.emit(ListenerState.ERROR)
             }
         }
     }

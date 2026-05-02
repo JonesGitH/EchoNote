@@ -1,6 +1,9 @@
 package com.example.keywordrecorder.ui.home
 
 import android.Manifest
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
@@ -25,6 +28,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
@@ -53,22 +57,62 @@ fun HomeScreen(
     homeVm: HomeViewModel = viewModel(),
     recordingsVm: RecordingsViewModel = viewModel()
 ) {
+    val context = LocalContext.current
     val listenerState by homeVm.listenerState.collectAsStateWithLifecycle()
     val modelState by homeVm.modelState.collectAsStateWithLifecycle()
     val recordings by recordingsVm.recordings.collectAsStateWithLifecycle()
     val needsPermission by homeVm.needsPermission.collectAsStateWithLifecycle()
+    val wakeKeyword by homeVm.wakeKeyword.collectAsStateWithLifecycle()
+
+    var showPermissionDeniedDialog by remember { mutableStateOf(false) }
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         homeVm.onPermissionHandled()
-        if (granted) homeVm.toggleListening()
+        if (granted) homeVm.toggleListening() else showPermissionDeniedDialog = true
     }
 
     LaunchedEffect(needsPermission) {
         if (needsPermission) {
             permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
+    }
+
+    if (showPermissionDeniedDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDeniedDialog = false },
+            containerColor = EchoSurface,
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text("Microphone Access Required", color = EchoTextPrimary, style = MaterialTheme.typography.headlineSmall)
+            },
+            text = {
+                Text(
+                    "EchoNote needs microphone permission to detect your wake keyword and record notes. Please enable it in Settings.",
+                    color = EchoTextSecondary,
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showPermissionDeniedDialog = false
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                                data = Uri.fromParts("package", context.packageName, null)
+                            }
+                        )
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = EchoAccent)
+                ) { Text("Open Settings", color = Color.White) }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPermissionDeniedDialog = false }) {
+                    Text("Cancel", color = EchoTextSecondary)
+                }
+            }
+        )
     }
 
     var selectedTab by remember { mutableIntStateOf(0) }
@@ -109,7 +153,8 @@ fun HomeScreen(
                 )
                 is ModelState.Error -> ModelStatusBanner(
                     label = "Model error: ${ms.message}",
-                    color = EchoRed
+                    color = EchoRed,
+                    onRetry = { homeVm.retryModelDownload() }
                 )
                 else -> Unit
             }
@@ -158,6 +203,7 @@ fun HomeScreen(
             // Bottom recording control panel
             RecordingPanel(
                 state = listenerState,
+                keyword = wakeKeyword,
                 onToggle = { homeVm.toggleListening() },
                 onStop = { homeVm.stopListening() }
             )
@@ -182,7 +228,7 @@ private fun EchoWordmark() {
 }
 
 @Composable
-private fun ModelStatusBanner(label: String, color: Color) {
+private fun ModelStatusBanner(label: String, color: Color, onRetry: (() -> Unit)? = null) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -192,7 +238,15 @@ private fun ModelStatusBanner(label: String, color: Color) {
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Box(modifier = Modifier.size(6.dp).background(color, CircleShape))
-        Text(label, color = color, style = MaterialTheme.typography.bodySmall)
+        Text(label, color = color, style = MaterialTheme.typography.bodySmall, modifier = Modifier.weight(1f))
+        if (onRetry != null) {
+            TextButton(
+                onClick = onRetry,
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp)
+            ) {
+                Text("Retry", color = color, style = MaterialTheme.typography.labelMedium)
+            }
+        }
     }
 }
 
@@ -328,6 +382,7 @@ private fun EmptyState() {
 @Composable
 private fun RecordingPanel(
     state: ListenerState,
+    keyword: String,
     onToggle: () -> Unit,
     onStop: () -> Unit
 ) {
@@ -451,6 +506,14 @@ private fun RecordingPanel(
                     else -> EchoTextTertiary
                 }
             )
+
+            if (state == ListenerState.LISTENING) {
+                Text(
+                    text = "Say \"$keyword\"",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = EchoTextTertiary
+                )
+            }
         }
     }
 }

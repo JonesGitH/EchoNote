@@ -3,6 +3,7 @@ package com.example.keywordrecorder.domain
 import com.example.keywordrecorder.data.RecordingDao
 import com.example.keywordrecorder.data.RecordingEntity
 import com.example.keywordrecorder.data.TranscriptionStatus
+import com.example.keywordrecorder.util.FileUtils
 import kotlinx.coroutines.flow.Flow
 
 class RecordingRepository(private val dao: RecordingDao) {
@@ -29,12 +30,17 @@ class RecordingRepository(private val dao: RecordingDao) {
 
     suspend fun getPending(): List<RecordingEntity> = dao.getPending()
 
-    suspend fun deleteAll() = dao.deleteAll()
+    suspend fun deleteAll() {
+        dao.getAllFilePaths().forEach { FileUtils.deleteIfExists(it) }
+        dao.deleteAll()
+    }
 
     suspend fun getCompletedSince(sinceEpochMillis: Long): List<RecordingEntity> =
         dao.getCompletedSince(sinceEpochMillis)
 
     suspend fun softDelete(id: Long) = dao.softDelete(id)
+
+    suspend fun restoreRecording(id: Long) = dao.restoreRecording(id)
 
     suspend fun getRetryable(maxRetry: Int): List<RecordingEntity> = dao.getRetryable(maxRetry)
 }
