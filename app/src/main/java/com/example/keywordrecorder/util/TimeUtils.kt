@@ -6,10 +6,12 @@ import java.util.*
 object TimeUtils {
     private val timeFormat = SimpleDateFormat("h:mm a", Locale.US)
     private val dateFormat = SimpleDateFormat("MMM d, yyyy", Locale.US)
+    private val dateShortFormat = SimpleDateFormat("MMM d", Locale.US)
     private val fullFormat = SimpleDateFormat("MMM d, yyyy h:mm a", Locale.US)
 
     fun formatEpoch(epochMillis: Long): String = timeFormat.format(Date(epochMillis))
     fun formatDate(epochMillis: Long): String = dateFormat.format(Date(epochMillis))
+    fun formatDateShort(epochMillis: Long): String = dateShortFormat.format(Date(epochMillis))
     fun formatFull(epochMillis: Long): String = fullFormat.format(Date(epochMillis))
 
     fun formatDuration(durationMillis: Long): String {

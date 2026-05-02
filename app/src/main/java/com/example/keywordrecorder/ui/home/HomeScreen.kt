@@ -1,5 +1,8 @@
 package com.example.keywordrecorder.ui.home
 
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.core.*
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -9,6 +12,10 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -18,6 +25,8 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -40,15 +49,30 @@ import kotlin.math.sin
 
 @Composable
 fun HomeScreen(
+    onOpenDetail: (Long) -> Unit = {},
     homeVm: HomeViewModel = viewModel(),
     recordingsVm: RecordingsViewModel = viewModel()
 ) {
     val listenerState by homeVm.listenerState.collectAsStateWithLifecycle()
     val modelState by homeVm.modelState.collectAsStateWithLifecycle()
     val recordings by recordingsVm.recordings.collectAsStateWithLifecycle()
+    val needsPermission by homeVm.needsPermission.collectAsStateWithLifecycle()
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        homeVm.onPermissionHandled()
+        if (granted) homeVm.toggleListening()
+    }
+
+    LaunchedEffect(needsPermission) {
+        if (needsPermission) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
 
     var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("All", "Recent", "Starred")
+    val tabs = listOf("All", "Recent")
 
     val filteredRecordings = when (selectedTab) {
         1 -> recordings.filter { rec ->
@@ -57,7 +81,6 @@ fun HomeScreen(
             cal.get(Calendar.DAY_OF_YEAR) == recCal.get(Calendar.DAY_OF_YEAR) &&
                 cal.get(Calendar.YEAR) == recCal.get(Calendar.YEAR)
         }
-        2 -> emptyList()
         else -> recordings
     }
 
@@ -72,9 +95,6 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 EchoWordmark()
-                IconButton(onClick = {}) {
-                    Text("⋯", color = EchoTextSecondary, fontSize = 20.sp)
-                }
             }
 
             // Model status (only shown when not ready)
@@ -122,18 +142,25 @@ fun HomeScreen(
             ) {
                 if (filteredRecordings.isEmpty()) {
                     item {
-                        EmptyState(tab = tabs[selectedTab])
+                        EmptyState()
                     }
                 } else {
                     items(filteredRecordings, key = { it.id }) { rec ->
-                        RecordingCard(recording = rec)
+                        RecordingCard(
+                            recording = rec,
+                            onClick = { onOpenDetail(rec.id) }
+                        )
                     }
                 }
                 item { Spacer(modifier = Modifier.height(8.dp)) }
             }
 
             // Bottom recording control panel
-            RecordingPanel(state = listenerState)
+            RecordingPanel(
+                state = listenerState,
+                onToggle = { homeVm.toggleListening() },
+                onStop = { homeVm.stopListening() }
+            )
         }
     }
 }
@@ -175,25 +202,33 @@ private fun FilterTab(label: String, selected: Boolean, onClick: () -> Unit) {
     val textColor = if (selected) EchoAccent else EchoTextSecondary
     val weight = if (selected) FontWeight.SemiBold else FontWeight.Normal
 
-    Box(
-        modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
-            .background(bg)
-            .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 7.dp)
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(20.dp),
+        color = bg,
+        modifier = Modifier.semantics { contentDescription = "$label filter" }
     ) {
-        Text(label, color = textColor, style = MaterialTheme.typography.labelLarge, fontWeight = weight)
+        Text(
+            label,
+            color = textColor,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = weight,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp)
+        )
     }
 }
 
 @Composable
-private fun RecordingCard(recording: RecordingEntity) {
+private fun RecordingCard(recording: RecordingEntity, onClick: () -> Unit) {
     val title = buildCardTitle(recording)
     val timeLabel = buildTimeLabel(recording.createdAtEpochMillis)
-    val snippet = recording.transcriptText?.take(80)?.let { "\"$it…\"" } ?: "Tap to transcribe"
+    val snippet = recording.transcriptText?.let { t ->
+        if (t.length > 80) "\"${t.take(80)}…\"" else "\"$t\""
+    } ?: "No transcript"
     val duration = TimeUtils.formatDuration(recording.durationMillis)
 
     Card(
+        onClick = onClick,
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = EchoSurface),
@@ -234,7 +269,8 @@ private fun RecordingCard(recording: RecordingEntity) {
                     modifier = Modifier
                         .weight(1f)
                         .height(24.dp)
-                        .padding(end = 12.dp),
+                        .padding(end = 12.dp)
+                        .semantics { contentDescription = "Audio waveform" },
                     seed = recording.id,
                     color = EchoWaveActive.copy(alpha = 0.7f)
                 )
@@ -262,7 +298,7 @@ private fun RecordingCard(recording: RecordingEntity) {
 }
 
 @Composable
-private fun EmptyState(tab: String) {
+private fun EmptyState() {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -270,15 +306,19 @@ private fun EmptyState(tab: String) {
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text("🎙", fontSize = 40.sp)
+        Icon(
+            imageVector = Icons.Default.Mic,
+            contentDescription = null,
+            tint = EchoAccent,
+            modifier = Modifier.size(48.dp)
+        )
         Text(
-            text = if (tab == "Starred") "No starred notes yet" else "No recordings yet",
+            text = "No recordings yet",
             style = MaterialTheme.typography.headlineSmall,
             color = EchoTextPrimary
         )
         Text(
-            text = if (tab == "Starred") "Tap ★ on any note to star it"
-                   else "Tap the record button or say your wake keyword",
+            text = "Tap the record button or say your wake keyword",
             style = MaterialTheme.typography.bodyMedium,
             color = EchoTextSecondary
         )
@@ -286,9 +326,13 @@ private fun EmptyState(tab: String) {
 }
 
 @Composable
-private fun RecordingPanel(state: ListenerState) {
+private fun RecordingPanel(
+    state: ListenerState,
+    onToggle: () -> Unit,
+    onStop: () -> Unit
+) {
     val isRecording = state == ListenerState.RECORDING
-    val isListening = state == ListenerState.LISTENING || state == ListenerState.WAKE_WORD_DETECTED
+    val isActive = state != ListenerState.STOPPED && state != ListenerState.ERROR
 
     val pulseAnim = rememberInfiniteTransition(label = "pulse")
     val pulseScale by pulseAnim.animateFloat(
@@ -316,11 +360,16 @@ private fun RecordingPanel(state: ListenerState) {
             WaveformBars(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(40.dp),
+                    .height(40.dp)
+                    .semantics { contentDescription = "Audio level visualization" },
                 seed = System.currentTimeMillis() / 500,
-                animated = isRecording,
+                animated = isRecording || isActive,
                 barCount = 48,
-                color = if (isRecording) EchoAccent else EchoWaveInactive
+                color = when {
+                    isRecording -> EchoAccent
+                    isActive -> EchoAccent.copy(alpha = 0.5f)
+                    else -> EchoWaveInactive
+                }
             )
 
             // Controls row
@@ -329,57 +378,78 @@ private fun RecordingPanel(state: ListenerState) {
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Stop / pause
+                // Stop button
                 IconButton(
-                    onClick = {},
+                    onClick = onStop,
+                    enabled = isActive,
                     modifier = Modifier
                         .size(48.dp)
                         .background(EchoSurfaceHigh, CircleShape)
                 ) {
-                    Text(
-                        if (isRecording) "⏸" else "⏸",
-                        fontSize = 20.sp,
-                        color = if (isRecording) EchoTextPrimary else EchoTextTertiary
+                    Icon(
+                        imageVector = Icons.Default.Stop,
+                        contentDescription = "Stop listening",
+                        tint = if (isActive) EchoTextPrimary else EchoTextTertiary,
+                        modifier = Modifier.size(24.dp)
                     )
                 }
 
-                // Big record button
-                Box(
+                // Big record / toggle button
+                Surface(
+                    onClick = onToggle,
                     modifier = Modifier
                         .size((64 * pulseScale).dp)
-                        .background(EchoAccent, CircleShape),
-                    contentAlignment = Alignment.Center
+                        .semantics {
+                            contentDescription = if (isActive) "Stop recording" else "Start recording"
+                        },
+                    shape = CircleShape,
+                    color = EchoAccent
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .background(Color.White, if (isRecording) RoundedCornerShape(4.dp) else CircleShape)
-                    )
+                    Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                        if (isRecording) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .background(Color.White, RoundedCornerShape(4.dp))
+                            )
+                        } else if (isActive) {
+                            Icon(
+                                imageVector = Icons.Default.Pause,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(28.dp)
+                            )
+                        } else {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .background(Color.White, CircleShape)
+                            )
+                        }
+                    }
                 }
 
-                // Recordings list / transcript toggle
-                IconButton(
-                    onClick = {},
-                    modifier = Modifier
-                        .size(48.dp)
-                        .background(EchoSurfaceHigh, CircleShape)
-                ) {
-                    Text("≡", fontSize = 20.sp, color = EchoTextSecondary)
-                }
+                // Spacer to balance the layout
+                Spacer(modifier = Modifier.size(48.dp))
             }
 
             // Status label
             Text(
                 text = when (state) {
-                    ListenerState.STOPPED           -> "00:00"
+                    ListenerState.STOPPED           -> "Ready"
                     ListenerState.STARTING          -> "Starting…"
                     ListenerState.LISTENING         -> "Listening…"
                     ListenerState.WAKE_WORD_DETECTED -> "Wake word!"
                     ListenerState.RECORDING         -> "Recording"
-                    ListenerState.ERROR             -> "Error"
+                    ListenerState.ERROR             -> "Error — tap to retry"
                 },
                 style = MaterialTheme.typography.labelLarge,
-                color = if (isRecording) EchoAccent else EchoTextTertiary
+                color = when {
+                    state == ListenerState.ERROR -> EchoRed
+                    isRecording -> EchoAccent
+                    state == ListenerState.LISTENING -> EchoAccent
+                    else -> EchoTextTertiary
+                }
             )
         }
     }

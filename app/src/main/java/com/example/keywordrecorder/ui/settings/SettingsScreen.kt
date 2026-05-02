@@ -3,13 +3,14 @@ package com.example.keywordrecorder.ui.settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -152,7 +153,7 @@ fun SettingsScreen(vm: SettingsViewModel = viewModel()) {
                     value = settings.maxRecordingSeconds.toFloat(),
                     onValueChange = { vm.updateMaxRecordingSeconds(it.roundToInt()) },
                     valueRange = 30f..300f,
-                    steps = 269,
+                    steps = 26,
                     modifier = Modifier.fillMaxWidth(),
                     colors = SliderDefaults.colors(
                         thumbColor = EchoAccent,
@@ -223,6 +224,7 @@ private fun DailyTimeSection(hour: Int, minute: Int, onSave: (Int, Int) -> Unit)
                 singleLine = true,
                 modifier = Modifier.width(72.dp),
                 shape = RoundedCornerShape(10.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = EchoAccent,
                     unfocusedBorderColor = EchoBorder,
@@ -242,6 +244,7 @@ private fun DailyTimeSection(hour: Int, minute: Int, onSave: (Int, Int) -> Unit)
                 singleLine = true,
                 modifier = Modifier.width(72.dp),
                 shape = RoundedCornerShape(10.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedBorderColor = EchoAccent,
                     unfocusedBorderColor = EchoBorder,

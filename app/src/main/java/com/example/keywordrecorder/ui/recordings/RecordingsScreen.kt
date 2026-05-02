@@ -1,10 +1,11 @@
 package com.example.keywordrecorder.ui.recordings
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -88,7 +89,12 @@ fun RecordingsScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("🎙", style = MaterialTheme.typography.displayLarge)
+                        Icon(
+                            imageVector = Icons.Default.Mic,
+                            contentDescription = null,
+                            tint = EchoAccent,
+                            modifier = Modifier.size(48.dp)
+                        )
                         Text("No recordings yet", style = MaterialTheme.typography.headlineSmall, color = EchoTextPrimary)
                         Text(
                             "Say your wake keyword to start recording",
@@ -146,14 +152,17 @@ private fun RecordingListCard(recording: RecordingEntity, onClick: () -> Unit) {
         TranscriptionStatus.FAILED     -> listOf(EchoRed)
         TranscriptionStatus.SKIPPED    -> listOf(EchoTextTertiary)
     }
-    val snippet = recording.transcriptText?.take(70)?.let { "\"$it…\"" } ?: "No transcript"
+    val snippet = recording.transcriptText?.let { t ->
+        if (t.length > 70) "\"${t.take(70)}…\"" else "\"$t\""
+    } ?: "No transcript"
     val duration = TimeUtils.formatDuration(recording.durationMillis)
     val time = TimeUtils.formatEpoch(recording.createdAtEpochMillis)
 
     Card(
+        onClick = onClick,
         shape = RoundedCornerShape(14.dp),
         colors = CardDefaults.cardColors(containerColor = EchoSurface),
-        modifier = Modifier.fillMaxWidth().clickable { onClick() }
+        modifier = Modifier.fillMaxWidth()
     ) {
         Row(
             modifier = Modifier.padding(16.dp),

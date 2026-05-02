@@ -69,7 +69,9 @@ fun AppNavGraph() {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen() }
+            composable(Screen.Home.route) {
+                HomeScreen(onOpenDetail = { id -> navController.navigate("detail/$id") })
+            }
             composable(Screen.Recordings.route) {
                 RecordingsScreen(onOpenDetail = { id -> navController.navigate("detail/$id") })
             }

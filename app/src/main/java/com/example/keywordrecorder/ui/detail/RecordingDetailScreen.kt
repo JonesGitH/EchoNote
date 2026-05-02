@@ -2,7 +2,6 @@ package com.example.keywordrecorder.ui.detail
 
 import android.media.MediaPlayer
 import androidx.compose.foundation.background
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -10,13 +9,19 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Pause
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.SkipNext
+import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -30,8 +35,8 @@ import com.example.keywordrecorder.data.TranscriptionStatus
 import com.example.keywordrecorder.ui.home.WaveformBars
 import com.example.keywordrecorder.ui.theme.*
 import com.example.keywordrecorder.util.TimeUtils
-import java.text.SimpleDateFormat
-import java.util.*
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 
 @Composable
 fun RecordingDetailScreen(
@@ -43,8 +48,36 @@ fun RecordingDetailScreen(
     val recording by vm.recording.collectAsStateWithLifecycle()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var playbackProgress by remember { mutableFloatStateOf(0.35f) }
+    var playbackProgress by remember { mutableFloatStateOf(0f) }
     var isPlaying by remember { mutableStateOf(false) }
+    var player by remember { mutableStateOf<MediaPlayer?>(null) }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            player?.release()
+            player = null
+        }
+    }
+
+    LaunchedEffect(isPlaying) {
+        if (isPlaying && player != null) {
+            while (isActive && isPlaying) {
+                try {
+                    val mp = player ?: break
+                    val duration = mp.duration.takeIf { it > 0 } ?: break
+                    playbackProgress = mp.currentPosition.toFloat() / duration
+                    if (!mp.isPlaying) {
+                        isPlaying = false
+                        playbackProgress = 0f
+                    }
+                } catch (_: IllegalStateException) {
+                    isPlaying = false
+                    break
+                }
+                delay(200)
+            }
+        }
+    }
 
     Surface(modifier = Modifier.fillMaxSize(), color = EchoBg) {
         when (val rec = recording) {
@@ -81,7 +114,8 @@ fun RecordingDetailScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(72.dp)
-                            .padding(horizontal = 20.dp),
+                            .padding(horizontal = 20.dp)
+                            .semantics { contentDescription = "Audio waveform" },
                         seed = rec.id,
                         barCount = 60,
                         color = EchoWaveActive
@@ -93,7 +127,13 @@ fun RecordingDetailScreen(
                     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
                         Slider(
                             value = playbackProgress,
-                            onValueChange = { playbackProgress = it },
+                            onValueChange = { value ->
+                                playbackProgress = value
+                                player?.let { mp ->
+                                    val seekPos = (mp.duration * value).toInt()
+                                    mp.seekTo(seekPos)
+                                }
+                            },
                             modifier = Modifier.fillMaxWidth(),
                             colors = SliderDefaults.colors(
                                 thumbColor = EchoAccent,
@@ -117,20 +157,52 @@ fun RecordingDetailScreen(
                     // Playback controls
                     PlaybackControls(
                         isPlaying = isPlaying,
-                        onSkipBack = { playbackProgress = (playbackProgress - 0.1f).coerceAtLeast(0f) },
-                        onPlayPause = {
-                            isPlaying = !isPlaying
-                            if (isPlaying) {
-                                try {
-                                    val player = MediaPlayer()
-                                    player.setDataSource(rec.filePath)
-                                    player.prepare()
-                                    player.start()
-                                } catch (_: Exception) {}
+                        onSkipBack = {
+                            player?.let { mp ->
+                                val newPos = (mp.currentPosition - 5000).coerceAtLeast(0)
+                                mp.seekTo(newPos)
+                                playbackProgress = newPos.toFloat() / mp.duration.coerceAtLeast(1)
                             }
                         },
-                        onSkipForward = { playbackProgress = (playbackProgress + 0.1f).coerceAtMost(1f) },
-                        onStop = { isPlaying = false; playbackProgress = 0f }
+                        onPlayPause = {
+                            val currentPlayer = player
+                            if (currentPlayer != null && isPlaying) {
+                                currentPlayer.pause()
+                                isPlaying = false
+                            } else if (currentPlayer != null && !isPlaying) {
+                                currentPlayer.start()
+                                isPlaying = true
+                            } else {
+                                try {
+                                    val mp = MediaPlayer().apply {
+                                        setDataSource(rec.filePath)
+                                        prepare()
+                                        start()
+                                        setOnCompletionListener {
+                                            isPlaying = false
+                                            playbackProgress = 0f
+                                        }
+                                    }
+                                    player = mp
+                                    isPlaying = true
+                                } catch (_: Exception) {
+                                    isPlaying = false
+                                }
+                            }
+                        },
+                        onSkipForward = {
+                            player?.let { mp ->
+                                val newPos = (mp.currentPosition + 5000).coerceAtMost(mp.duration)
+                                mp.seekTo(newPos)
+                                playbackProgress = newPos.toFloat() / mp.duration.coerceAtLeast(1)
+                            }
+                        },
+                        onStop = {
+                            player?.release()
+                            player = null
+                            isPlaying = false
+                            playbackProgress = 0f
+                        }
                     )
 
                     Spacer(modifier = Modifier.height(20.dp))
@@ -139,11 +211,6 @@ fun RecordingDetailScreen(
 
                     // Transcript section
                     TranscriptSection(rec = rec, onRetranscribe = { vm.retranscribe(rec.id) })
-
-                    Spacer(modifier = Modifier.height(20.dp))
-
-                    // AI action chips
-                    ActionChipRow(modifier = Modifier.padding(horizontal = 20.dp))
 
                     Spacer(modifier = Modifier.height(32.dp))
                 }
@@ -170,6 +237,9 @@ fun RecordingDetailScreen(
                 Button(
                     onClick = {
                         showDeleteDialog = false
+                        player?.release()
+                        player = null
+                        isPlaying = false
                         recording?.let { vm.delete(it.id) { onBack() } }
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = EchoRed)
@@ -204,7 +274,7 @@ private fun DetailTopBar(title: String, onBack: () -> Unit, onDelete: () -> Unit
             modifier = Modifier.weight(1f)
         )
         IconButton(onClick = onDelete) {
-            Icon(Icons.Default.MoreVert, contentDescription = "More", tint = EchoTextSecondary)
+            Icon(Icons.Default.Delete, contentDescription = "Delete", tint = EchoRed)
         }
     }
 }
@@ -222,36 +292,42 @@ private fun PlaybackControls(
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Spacer(modifier = Modifier.width(8.dp))
-
         // Skip back
-        IconButton(onClick = onSkipBack, modifier = Modifier.size(44.dp)) {
-            Text("‹", fontSize = 24.sp, color = EchoTextSecondary)
-        }
-
-        Spacer(modifier = Modifier.width(8.dp))
-
-        // Pause / Resume
         IconButton(
-            onClick = onPlayPause,
+            onClick = onSkipBack,
             modifier = Modifier
-                .size(44.dp)
+                .size(48.dp)
                 .background(EchoSurfaceHigh, CircleShape)
         ) {
-            Text(if (isPlaying) "⏸" else "⏸", fontSize = 18.sp, color = EchoTextPrimary)
+            Icon(
+                imageVector = Icons.Default.SkipPrevious,
+                contentDescription = "Skip back 5 seconds",
+                tint = EchoTextSecondary,
+                modifier = Modifier.size(24.dp)
+            )
         }
 
         Spacer(modifier = Modifier.width(12.dp))
 
         // Big play button
-        Box(
+        Surface(
+            onClick = onPlayPause,
             modifier = Modifier
-                .size(60.dp)
-                .background(EchoAccent, CircleShape)
-                .clip(CircleShape),
-            contentAlignment = Alignment.Center
+                .size(64.dp)
+                .semantics {
+                    contentDescription = if (isPlaying) "Pause playback" else "Play recording"
+                },
+            shape = CircleShape,
+            color = EchoAccent
         ) {
-            Text(if (isPlaying) "⏸" else "▶", fontSize = 22.sp, color = Color.White)
+            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+                Icon(
+                    imageVector = if (isPlaying) Icons.Default.Pause else Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(28.dp)
+                )
+            }
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -260,20 +336,33 @@ private fun PlaybackControls(
         IconButton(
             onClick = onSkipForward,
             modifier = Modifier
-                .size(44.dp)
+                .size(48.dp)
                 .background(EchoSurfaceHigh, CircleShape)
         ) {
-            Text("›", fontSize = 24.sp, color = EchoTextSecondary)
+            Icon(
+                imageVector = Icons.Default.SkipNext,
+                contentDescription = "Skip forward 5 seconds",
+                tint = EchoTextSecondary,
+                modifier = Modifier.size(24.dp)
+            )
         }
 
-        Spacer(modifier = Modifier.width(8.dp))
+        Spacer(modifier = Modifier.width(12.dp))
 
         // Stop / close
-        IconButton(onClick = onStop, modifier = Modifier.size(44.dp)) {
-            Text("✕", fontSize = 18.sp, color = EchoTextSecondary)
+        IconButton(
+            onClick = onStop,
+            modifier = Modifier
+                .size(48.dp)
+                .background(EchoSurfaceHigh, CircleShape)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Close,
+                contentDescription = "Stop playback",
+                tint = EchoTextSecondary,
+                modifier = Modifier.size(24.dp)
+            )
         }
-
-        Spacer(modifier = Modifier.width(8.dp))
     }
 }
 
@@ -347,59 +436,12 @@ private fun TranscriptSection(rec: RecordingEntity, onRetranscribe: () -> Unit) 
     }
 }
 
-@Composable
-private fun ActionChipRow(modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        // Summarize — filled primary chip
-        Surface(
-            shape = RoundedCornerShape(20.dp),
-            color = EchoAccentDim,
-            modifier = Modifier
-        ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(5.dp)
-            ) {
-                Text("✦", fontSize = 12.sp, color = EchoAccent)
-                Text("Summarize", style = MaterialTheme.typography.labelLarge, color = EchoAccent, fontWeight = FontWeight.SemiBold)
-            }
-        }
-
-        // Action items
-        OutlinedActionChip(label = "Action items")
-
-        // Translate
-        OutlinedActionChip(label = "Translate")
-    }
-}
-
-@Composable
-private fun OutlinedActionChip(label: String) {
-    Surface(
-        shape = RoundedCornerShape(20.dp),
-        color = Color.Transparent,
-        border = BorderStroke(1.dp, EchoBorder)
-    ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = EchoTextSecondary,
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp)
-        )
-    }
-}
-
 private fun buildDetailTitle(rec: RecordingEntity): String {
-    val dateStr = SimpleDateFormat("MMM d", Locale.US).format(Date(rec.createdAtEpochMillis))
-    return "Note — $dateStr"
+    return "Note — ${TimeUtils.formatDateShort(rec.createdAtEpochMillis)}"
 }
 
 private fun buildMetaLine(rec: RecordingEntity): String {
-    val date = SimpleDateFormat("MMMM d, yyyy", Locale.US).format(Date(rec.createdAtEpochMillis))
+    val date = TimeUtils.formatDate(rec.createdAtEpochMillis)
     val duration = TimeUtils.formatDuration(rec.durationMillis)
     val status = when (rec.transcriptionStatus) {
         TranscriptionStatus.COMPLETED -> "Auto-transcribed"
@@ -419,15 +461,13 @@ private fun formatMs(ms: Long): String {
 }
 
 private fun buildHighlightedTranscript(text: String) = buildAnnotatedString {
-    // Bold every ~5th–8th word to simulate key phrase highlighting
     val words = text.split(" ")
     var boldCount = 0
-    var inBold = false
     var boldWordsLeft = 0
 
     words.forEachIndexed { idx, word ->
         if (boldWordsLeft > 0) {
-            withStyle(SpanStyle(color = Color.White, fontWeight = FontWeight.Bold)) {
+            withStyle(SpanStyle(color = EchoTextPrimary, fontWeight = FontWeight.Bold)) {
                 append(word)
             }
             boldWordsLeft--

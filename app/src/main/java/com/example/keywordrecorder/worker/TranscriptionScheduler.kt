@@ -2,6 +2,8 @@ package com.example.keywordrecorder.worker
 
 import android.content.Context
 import androidx.work.*
+import java.time.LocalDateTime
+import java.time.temporal.ChronoUnit
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
@@ -58,15 +60,12 @@ object TranscriptionScheduler {
         )
     }
 
-    private fun millisUntil(hour: Int, minute: Int): Long {
-        val now = Calendar.getInstance()
-        val target = Calendar.getInstance().apply {
-            set(Calendar.HOUR_OF_DAY, hour)
-            set(Calendar.MINUTE, minute)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-        if (target.before(now)) target.add(Calendar.DAY_OF_YEAR, 1)
-        return target.timeInMillis - now.timeInMillis
+    fun computeNextDelayMillis(hour: Int, minute: Int, now: LocalDateTime = LocalDateTime.now()): Long {
+        var target = now.toLocalDate().atTime(hour, minute)
+        if (!target.isAfter(now)) target = target.plusDays(1)
+        return ChronoUnit.MILLIS.between(now, target)
     }
+
+    private fun millisUntil(hour: Int, minute: Int): Long =
+        computeNextDelayMillis(hour, minute)
 }
