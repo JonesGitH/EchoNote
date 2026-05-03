@@ -17,7 +17,13 @@ class KeywordListeningService : Service() {
     companion object {
         const val ACTION_START = "com.example.keywordrecorder.START"
         const val ACTION_STOP = "com.example.keywordrecorder.STOP"
-        private const val SILENCE_AMPLITUDE_THRESHOLD = 500
+        // Minimum silence threshold even in a completely silent room.
+        private const val MIN_SILENCE_THRESHOLD = 1500
+        // Cap so that a noisy calibration period (user speaks immediately) can't
+        // push the threshold so high that silence is never detected.
+        private const val MAX_SILENCE_THRESHOLD = 8000
+        // Effective threshold = measured noise floor × this multiplier.
+        private const val NOISE_FLOOR_MULTIPLIER = 3.0f
     }
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
@@ -70,12 +76,27 @@ class KeywordListeningService : Service() {
                     var silenceStart: Long? = null
 
                     try {
+                        // Calibration: measure ambient noise over the first 600 ms so the
+                        // silence threshold adapts to the user's environment rather than
+                        // using a fixed value that background noise can easily exceed.
+                        var noiseSum = 0L
+                        var noiseCount = 0
+                        while (isActive && System.currentTimeMillis() - recordStart < 600L) {
+                            delay(200)
+                            noiseSum += recorder.getMaxAmplitude()
+                            noiseCount++
+                        }
+                        val noiseFloor = if (noiseCount > 0) noiseSum / noiseCount else 0L
+                        val effectiveThreshold = (noiseFloor * NOISE_FLOOR_MULTIPLIER)
+                            .toInt()
+                            .coerceIn(MIN_SILENCE_THRESHOLD, MAX_SILENCE_THRESHOLD)
+
                         while (isActive) {
                             delay(200)
                             val amplitude = recorder.getMaxAmplitude()
                             val elapsed = System.currentTimeMillis() - recordStart
                             if (elapsed >= maxMs) break
-                            if (amplitude < SILENCE_AMPLITUDE_THRESHOLD) {
+                            if (amplitude < effectiveThreshold) {
                                 val ss = silenceStart ?: run { silenceStart = System.currentTimeMillis(); System.currentTimeMillis() }
                                 if ((System.currentTimeMillis() - ss) >= silenceMs) break
                             } else {

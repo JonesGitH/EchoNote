@@ -88,7 +88,17 @@ The wake keyword is re-read from DataStore and a fresh `VoskWakeWordDetector` is
 
 ## Silence Detection
 
-The service polls `recorder.getMaxAmplitude()` every 200 ms. Amplitude below `SILENCE_AMPLITUDE_THRESHOLD = 500` for `silenceTimeoutSeconds` (configurable via Settings, default 2 s) stops the recording. The amplitude threshold is hardcoded — only the timeout duration is user-configurable. `SilenceDetector.kt` exists but is unused — the service does this inline.
+The service polls `recorder.getMaxAmplitude()` every 200 ms. When amplitude stays below the effective silence threshold for `silenceTimeoutSeconds` (configurable via Settings, default 2 s), the recording stops.
+
+**Adaptive noise floor calibration:** At the start of each recording the service samples ambient noise for the first 600 ms, then computes:
+
+```
+effectiveThreshold = (noiseFloor × 3.0).coerceIn(MIN = 1500, MAX = 8000)
+```
+
+This adapts to the user's environment — a noisy room raises the threshold so background noise cannot prevent silence detection. The `MAX_SILENCE_THRESHOLD = 8000` cap prevents the threshold from being set impossibly high if the user speaks during the calibration window. Only the timeout duration is user-configurable; the multiplier and bounds are constants in `KeywordListeningService`.
+
+`SilenceDetector.kt` exists but is unused — detection is inline in the service.
 
 ## Vosk Model
 
