@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Build
 import android.os.Environment
 import android.provider.MediaStore
+import android.util.Log
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.keywordrecorder.KeywordRecorderApp
@@ -17,12 +18,31 @@ import java.io.File
 import java.io.FileOutputStream
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.flow.first
 
 class DailySummaryWorker(context: Context, params: WorkerParameters) :
     CoroutineWorker(context, params) {
 
     override suspend fun doWork(): Result {
         val app = applicationContext as KeywordRecorderApp
+
+        // Transcribe any recordings the 21:00 batch worker may have missed
+        val settings = app.settingsDataStore.settings.first()
+        val pending = if (settings.retryFailed) {
+            app.recordingRepository.getRetryable(settings.maxRetryCount)
+        } else {
+            app.recordingRepository.getPending()
+        }
+        for (rec in pending) {
+            try {
+                app.transcriptionRepository.transcribe(rec.id)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                Log.e("DailySummaryWorker", "Transcription failed for ${rec.id}", e)
+            }
+        }
 
         val cal = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0)
