@@ -3,17 +3,14 @@ package com.example.keywordrecorder.ui.settings
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.keywordrecorder.data.TranscriptionMode
@@ -280,10 +277,56 @@ private fun SettingsSection(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DailyTimeSection(hour: Int, minute: Int, onSave: (Int, Int) -> Unit) {
-    var hourInput by remember(hour) { mutableIntStateOf(hour) }
-    var minuteInput by remember(minute) { mutableIntStateOf(minute) }
+    var showPicker by remember { mutableStateOf(false) }
+    val timeState = rememberTimePickerState(
+        initialHour = hour,
+        initialMinute = minute,
+        is24Hour = true
+    )
+
+    if (showPicker) {
+        AlertDialog(
+            onDismissRequest = { showPicker = false },
+            containerColor = EchoSurface,
+            shape = RoundedCornerShape(16.dp),
+            title = {
+                Text("Transcription Time", color = EchoTextPrimary, style = MaterialTheme.typography.titleLarge)
+            },
+            text = {
+                TimePicker(
+                    state = timeState,
+                    colors = TimePickerDefaults.colors(
+                        clockDialColor = EchoBg,
+                        clockDialSelectedContentColor = EchoBg,
+                        clockDialUnselectedContentColor = EchoTextPrimary,
+                        selectorColor = EchoAccent,
+                        containerColor = EchoSurface,
+                        periodSelectorBorderColor = EchoBorder,
+                        timeSelectorSelectedContainerColor = EchoAccentDim,
+                        timeSelectorUnselectedContainerColor = EchoBg,
+                        timeSelectorSelectedContentColor = EchoAccent,
+                        timeSelectorUnselectedContentColor = EchoTextSecondary
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onSave(timeState.hour, timeState.minute)
+                    showPicker = false
+                }) {
+                    Text("OK", color = EchoAccent, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showPicker = false }) {
+                    Text("Cancel", color = EchoTextSecondary)
+                }
+            }
+        )
+    }
 
     SettingsSection(title = "Daily Transcription Time") {
         Text(
@@ -291,57 +334,24 @@ private fun DailyTimeSection(hour: Int, minute: Int, onSave: (Int, Int) -> Unit)
             style = MaterialTheme.typography.bodyMedium,
             color = EchoTextSecondary
         )
-        Spacer(modifier = Modifier.height(12.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         Row(
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.SpaceBetween
         ) {
-            OutlinedTextField(
-                value = hourInput.toString().padStart(2, '0'),
-                onValueChange = { v -> v.toIntOrNull()?.coerceIn(0, 23)?.let { hourInput = it } },
-                singleLine = true,
-                modifier = Modifier.width(72.dp),
-                shape = RoundedCornerShape(10.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = EchoAccent,
-                    unfocusedBorderColor = EchoBorder,
-                    focusedTextColor = EchoTextPrimary,
-                    unfocusedTextColor = EchoTextPrimary,
-                    cursorColor = EchoAccent,
-                    focusedContainerColor = EchoSurface,
-                    unfocusedContainerColor = EchoSurface
-                ),
-                textStyle = MaterialTheme.typography.headlineSmall,
-                label = { Text("HH", color = EchoTextTertiary, style = MaterialTheme.typography.labelSmall) }
+            Text(
+                "%02d:%02d".format(hour, minute),
+                style = MaterialTheme.typography.displaySmall,
+                color = EchoAccent,
+                fontWeight = FontWeight.SemiBold
             )
-            Text(":", fontSize = 28.sp, color = EchoTextPrimary, fontWeight = FontWeight.Bold)
-            OutlinedTextField(
-                value = minuteInput.toString().padStart(2, '0'),
-                onValueChange = { v -> v.toIntOrNull()?.coerceIn(0, 59)?.let { minuteInput = it } },
-                singleLine = true,
-                modifier = Modifier.width(72.dp),
-                shape = RoundedCornerShape(10.dp),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                colors = OutlinedTextFieldDefaults.colors(
-                    focusedBorderColor = EchoAccent,
-                    unfocusedBorderColor = EchoBorder,
-                    focusedTextColor = EchoTextPrimary,
-                    unfocusedTextColor = EchoTextPrimary,
-                    cursorColor = EchoAccent,
-                    focusedContainerColor = EchoSurface,
-                    unfocusedContainerColor = EchoSurface
-                ),
-                textStyle = MaterialTheme.typography.headlineSmall,
-                label = { Text("MM", color = EchoTextTertiary, style = MaterialTheme.typography.labelSmall) }
-            )
-            Spacer(modifier = Modifier.weight(1f))
             Button(
-                onClick = { onSave(hourInput, minuteInput) },
+                onClick = { showPicker = true },
                 colors = ButtonDefaults.buttonColors(containerColor = EchoAccent),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Text("Save", color = Color.White, fontWeight = FontWeight.SemiBold)
+                Text("Change", color = Color.White, fontWeight = FontWeight.SemiBold)
             }
         }
     }

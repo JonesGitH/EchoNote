@@ -8,6 +8,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Mic
+import androidx.compose.material.icons.filled.SaveAlt
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -36,6 +37,12 @@ fun RecordingsScreen(
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var showDeleteAllDialog by remember { mutableStateOf(false) }
+
+    LaunchedEffect(vm) {
+        vm.exportMessage.collect { message ->
+            snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Short)
+        }
+    }
 
     if (showDeleteAllDialog) {
         AlertDialog(
@@ -96,6 +103,19 @@ fun RecordingsScreen(
                             style = MaterialTheme.typography.bodyMedium,
                             color = EchoTextSecondary
                         )
+                        val hasTranscribed = recordings.any {
+                            it.transcriptionStatus == TranscriptionStatus.COMPLETED
+                        }
+                        if (hasTranscribed) {
+                            IconButton(onClick = { vm.exportAllTranscribed() }) {
+                                Icon(
+                                    imageVector = Icons.Default.SaveAlt,
+                                    contentDescription = "Export all transcribed",
+                                    tint = EchoAccent,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                         if (recordings.isNotEmpty()) {
                             IconButton(onClick = { showDeleteAllDialog = true }) {
                                 Icon(
