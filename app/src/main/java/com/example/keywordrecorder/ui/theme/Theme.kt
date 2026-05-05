@@ -49,7 +49,7 @@ private val EchoShapes = Shapes(
 )
 
 @Composable
-fun KeywordRecorderTheme(content: @Composable () -> Unit) {
+fun EchoNoteTheme(content: @Composable () -> Unit) {
     val view = LocalView.current
     if (!view.isInEditMode) {
         SideEffect {

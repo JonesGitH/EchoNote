@@ -9,11 +9,12 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.example.keywordrecorder.KeywordRecorderApp
 import com.example.keywordrecorder.data.DailySummaryEntity
+import com.example.keywordrecorder.data.RecordingEntity
+import com.example.keywordrecorder.data.TranscriptionStatus
 import com.example.keywordrecorder.util.FileUtils
 import com.example.keywordrecorder.util.TimeUtils
 import java.io.File
 import java.io.FileOutputStream
-import java.io.OutputStream
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -31,27 +32,29 @@ class DailySummaryWorker(context: Context, params: WorkerParameters) :
         }
         val midnightMillis = cal.timeInMillis
 
-        val completed = app.recordingRepository.getCompletedSince(midnightMillis)
-        if (completed.isEmpty()) return Result.success()
+        val allRecordings = app.recordingRepository.getAllForDay(midnightMillis)
+        if (allRecordings.isEmpty()) return Result.success()
 
-        val lines = completed.map { rec ->
-            val time = TimeUtils.formatEpoch(rec.createdAtEpochMillis)
-            "[$time] ${rec.transcriptText ?: ""}"
+        val summaryText = allRecordings.joinToString("\n\n") { rec ->
+            "[${TimeUtils.formatEpoch(rec.createdAtEpochMillis)}] ${rec.transcriptText ?: ""}"
         }
-        val summaryText = lines.joinToString("\n\n")
+        val markdownContent = buildMarkdown(allRecordings, midnightMillis)
 
         val entity = DailySummaryEntity(
             dateEpochMillis = midnightMillis,
             summaryText = summaryText,
-            recordingCount = completed.size,
+            recordingCount = allRecordings.size,
             createdAtEpochMillis = System.currentTimeMillis()
         )
         app.dailySummaryRepository.insert(entity)
 
-        try { exportToDownloads(summaryText, midnightMillis) } catch (e: Exception) {
+        try { exportToDownloads(markdownContent, midnightMillis) } catch (e: Exception) {
             android.util.Log.e("DailySummaryWorker", "Export to Downloads failed", e)
         }
 
+        val completed = allRecordings.filter {
+            it.transcriptionStatus == TranscriptionStatus.COMPLETED
+        }
         for (rec in completed) {
             app.recordingRepository.softDelete(rec.id)
             FileUtils.deleteIfExists(rec.filePath)
@@ -60,10 +63,32 @@ class DailySummaryWorker(context: Context, params: WorkerParameters) :
         return Result.success()
     }
 
-    private fun exportToDownloads(text: String, dateMillis: Long) {
-        val dateLabel = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date(dateMillis))
-        val fileName = "EchoNote_$dateLabel.txt"
-        val content = text.toByteArray(Charsets.UTF_8)
+    private fun buildMarkdown(recordings: List<RecordingEntity>, dateMillis: Long): String {
+        val dateLabel = SimpleDateFormat("MMMM d, yyyy", Locale.US).format(Date(dateMillis))
+        val sb = StringBuilder()
+        sb.appendLine("# EchoNote — $dateLabel")
+        sb.appendLine()
+        recordings.forEach { rec ->
+            val time = TimeUtils.formatEpoch(rec.createdAtEpochMillis)
+            val duration = TimeUtils.formatDuration(rec.durationMillis)
+            sb.appendLine("## $time · $duration")
+            sb.appendLine()
+            if (!rec.transcriptText.isNullOrBlank()) {
+                sb.appendLine(rec.transcriptText)
+            } else {
+                sb.appendLine("*(no transcript)*")
+            }
+            sb.appendLine()
+            sb.appendLine("---")
+            sb.appendLine()
+        }
+        return sb.toString().trimEnd()
+    }
+
+    private fun exportToDownloads(markdown: String, dateMillis: Long) {
+        val dateLabel = SimpleDateFormat("yyyy_MM_dd", Locale.US).format(Date(dateMillis))
+        val fileName = "${dateLabel}_EchoNote.md"
+        val content = markdown.toByteArray(Charsets.UTF_8)
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             val resolver = applicationContext.contentResolver
@@ -86,7 +111,7 @@ class DailySummaryWorker(context: Context, params: WorkerParameters) :
 
             val values = ContentValues().apply {
                 put(MediaStore.Downloads.DISPLAY_NAME, fileName)
-                put(MediaStore.Downloads.MIME_TYPE, "text/plain")
+                put(MediaStore.Downloads.MIME_TYPE, "text/markdown")
                 put(MediaStore.Downloads.IS_PENDING, 1)
             }
             val uri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return

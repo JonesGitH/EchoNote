@@ -15,7 +15,7 @@ Output: app\build\outputs\apk\debug\app-debug.apk
 ```
 
 Gradle wrapper: `gradle-8.11.1-bin.zip`
-AGP: `8.7.3`, compileSdk/targetSdk: `35`, minSdk: `26`
+AGP: `8.7.3`, compileSdk/targetSdk: `35`, minSdk: `29`
 
 Do not upgrade Gradle past 8.11.1 without also upgrading AGP — they have a strict compatibility matrix.
 

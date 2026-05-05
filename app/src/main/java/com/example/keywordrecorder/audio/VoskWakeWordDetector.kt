@@ -23,8 +23,12 @@ class VoskWakeWordDetector(
 
     override suspend fun start() {
         val model: Model = modelManager.ensureModel()
+        // We use a limited grammar to improve accuracy, but keep [unk] 
+        // to handle non-keyword speech without forcing it to the keyword.
         val grammar = """["${keyword.lowercase()}", "[unk]"]"""
-        recognizer = Recognizer(model, sampleRate.toFloat(), grammar)
+        recognizer = Recognizer(model, sampleRate.toFloat(), grammar).apply {
+            setWords(true) // Required to get confidence scores in the JSON
+        }
     }
 
     override suspend fun awaitWakeWord(): Unit = withContext(Dispatchers.IO) {
@@ -48,12 +52,20 @@ class VoskWakeWordDetector(
             while (isActive) {
                 val read = ar.read(buf, 0, bufferSize)
                 if (read <= 0) continue
+                
                 if (rec.acceptWaveForm(buf, read)) {
-                    val result = JSONObject(rec.result).optString("text", "")
-                    if (result.contains(keyword.lowercase())) return@withContext
+                    // Full result (silence detected). Check for high-confidence match.
+                    val json = JSONObject(rec.result)
+                    if (hasHighConfidenceMatch(json)) return@withContext
                 } else {
-                    val partial = JSONObject(rec.partialResult).optString("partial", "")
-                    if (partial.contains(keyword.lowercase())) return@withContext
+                    // Partial result (ongoing speech).
+                    // Trigger ONLY if the keyword is the ONLY thing heard in the partial.
+                    // This prevents "cat" matching "keyword" if the keyword was "key".
+                    val partialJson = JSONObject(rec.partialResult)
+                    val partialText = partialJson.optString("partial", "").trim()
+                    if (partialText == keyword.lowercase()) {
+                        return@withContext
+                    }
                 }
             }
         } finally {
@@ -61,6 +73,23 @@ class VoskWakeWordDetector(
             ar.release()
             audioRecord = null
         }
+    }
+
+    private fun hasHighConfidenceMatch(json: JSONObject): Boolean {
+        val text = json.optString("text", "")
+        if (!text.contains(keyword.lowercase())) return false
+        
+        val words = json.optJSONArray("result") ?: return true // If no word details, fallback to text match
+        for (i in 0 until words.length()) {
+            val wordObj = words.getJSONObject(i)
+            val word = wordObj.optString("word", "")
+            val conf = wordObj.optDouble("conf", 0.0)
+            
+            if (word == keyword.lowercase() && conf >= 0.8) {
+                return true
+            }
+        }
+        return false
     }
 
     override fun stop() {

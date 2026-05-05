@@ -19,9 +19,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
@@ -378,6 +381,7 @@ private fun PlaybackControls(
 
 @Composable
 private fun TranscriptSection(rec: RecordingEntity, onRetranscribe: () -> Unit) {
+    val clipboardManager = LocalClipboardManager.current
     Column(modifier = Modifier.padding(horizontal = 20.dp)) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -390,14 +394,29 @@ private fun TranscriptSection(rec: RecordingEntity, onRetranscribe: () -> Unit) 
                 color = EchoTextSecondary,
                 letterSpacing = 1.5.sp
             )
-            val (statusLabel, statusColor) = when (rec.transcriptionStatus) {
-                TranscriptionStatus.COMPLETED  -> "Auto-transcribed" to EchoGreen
-                TranscriptionStatus.PENDING    -> "Pending" to EchoAmber
-                TranscriptionStatus.PROCESSING -> "Processing…" to EchoAccent
-                TranscriptionStatus.FAILED     -> "Failed" to EchoRed
-                TranscriptionStatus.SKIPPED    -> "Skipped" to EchoTextTertiary
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                val (statusLabel, statusColor) = when (rec.transcriptionStatus) {
+                    TranscriptionStatus.COMPLETED  -> "Auto-transcribed" to EchoGreen
+                    TranscriptionStatus.PENDING    -> "Pending" to EchoAmber
+                    TranscriptionStatus.PROCESSING -> "Processing…" to EchoAccent
+                    TranscriptionStatus.FAILED     -> "Failed" to EchoRed
+                    TranscriptionStatus.SKIPPED    -> "Skipped" to EchoTextTertiary
+                }
+                Text(statusLabel, style = MaterialTheme.typography.labelSmall, color = statusColor)
+                if (!rec.transcriptText.isNullOrBlank()) {
+                    IconButton(
+                        onClick = { clipboardManager.setText(AnnotatedString(rec.transcriptText!!)) },
+                        modifier = Modifier.size(32.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ContentCopy,
+                            contentDescription = "Copy transcript",
+                            tint = EchoTextTertiary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+                }
             }
-            Text(statusLabel, style = MaterialTheme.typography.labelSmall, color = statusColor)
         }
 
         Spacer(modifier = Modifier.height(12.dp))

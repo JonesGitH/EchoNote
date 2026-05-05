@@ -16,7 +16,7 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:label="@string/app_name"
         android:supportsRtl="true"
-        android:theme="@style/Theme.KeywordRecorder">
+        android:theme="@style/Theme.EchoNote">
 
         <activity
             android:name=".ui.MainActivity"

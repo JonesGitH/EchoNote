@@ -47,7 +47,6 @@ import com.example.keywordrecorder.service.ListenerState
 import com.example.keywordrecorder.ui.recordings.RecordingsViewModel
 import com.example.keywordrecorder.ui.theme.*
 import com.example.keywordrecorder.util.TimeUtils
-import java.util.Calendar
 import kotlin.math.PI
 import kotlin.math.sin
 
@@ -115,19 +114,6 @@ fun HomeScreen(
         )
     }
 
-    var selectedTab by remember { mutableIntStateOf(0) }
-    val tabs = listOf("All", "Recent")
-
-    val filteredRecordings = when (selectedTab) {
-        1 -> recordings.filter { rec ->
-            val cal = Calendar.getInstance()
-            val recCal = Calendar.getInstance().apply { timeInMillis = rec.createdAtEpochMillis }
-            cal.get(Calendar.DAY_OF_YEAR) == recCal.get(Calendar.DAY_OF_YEAR) &&
-                cal.get(Calendar.YEAR) == recCal.get(Calendar.YEAR)
-        }
-        else -> recordings
-    }
-
     Surface(modifier = Modifier.fillMaxSize(), color = EchoBg) {
         Column(modifier = Modifier.fillMaxSize()) {
             // Header
@@ -159,22 +145,6 @@ fun HomeScreen(
                 else -> Unit
             }
 
-            // Filter tabs
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                tabs.forEachIndexed { idx, label ->
-                    FilterTab(
-                        label = label,
-                        selected = selectedTab == idx,
-                        onClick = { selectedTab = idx }
-                    )
-                }
-            }
-
             Spacer(modifier = Modifier.height(12.dp))
 
             // Recording list
@@ -185,12 +155,12 @@ fun HomeScreen(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                if (filteredRecordings.isEmpty()) {
+                if (recordings.isEmpty()) {
                     item {
                         EmptyState()
                     }
                 } else {
-                    items(filteredRecordings, key = { it.id }) { rec ->
+                    items(recordings, key = { it.id }) { rec ->
                         RecordingCard(
                             recording = rec,
                             onClick = { onOpenDetail(rec.id) }
@@ -247,28 +217,6 @@ private fun ModelStatusBanner(label: String, color: Color, onRetry: (() -> Unit)
                 Text("Retry", color = color, style = MaterialTheme.typography.labelMedium)
             }
         }
-    }
-}
-
-@Composable
-private fun FilterTab(label: String, selected: Boolean, onClick: () -> Unit) {
-    val bg = if (selected) EchoAccentDim else Color.Transparent
-    val textColor = if (selected) EchoAccent else EchoTextSecondary
-    val weight = if (selected) FontWeight.SemiBold else FontWeight.Normal
-
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(20.dp),
-        color = bg,
-        modifier = Modifier.semantics { contentDescription = "$label filter" }
-    ) {
-        Text(
-            label,
-            color = textColor,
-            style = MaterialTheme.typography.labelLarge,
-            fontWeight = weight,
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 7.dp)
-        )
     }
 }
 

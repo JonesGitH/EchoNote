@@ -14,6 +14,7 @@ import com.example.keywordrecorder.util.PermissionUtils
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -22,7 +23,19 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     private val application = app as KeywordRecorderApp
 
     val listenerState: StateFlow<ListenerState> = ListenerStateBus.state
-    val modelState: StateFlow<ModelState> = application.modelManager.state
+
+    // Combines Vosk (wake word) and Whisper (transcription) model states.
+    // Shows whichever model is not yet ready; Whisper takes priority as the larger download.
+    val modelState: StateFlow<ModelState> = combine(
+        application.modelManager.state,
+        application.whisperModelManager.state
+    ) { vosk, whisper ->
+        when {
+            whisper !is ModelState.Ready -> whisper
+            vosk !is ModelState.Ready    -> vosk
+            else                         -> ModelState.Ready
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ModelState.NotReady)
 
     val wakeKeyword: StateFlow<String> = application.settingsDataStore.settings
         .map { it.wakeKeyword }
@@ -77,6 +90,7 @@ class HomeViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun retryModelDownload() = viewModelScope.launch {
-        try { application.modelManager.ensureModel() } catch (_: Exception) { /* state updated by manager */ }
+        try { application.modelManager.ensureModel() } catch (_: Exception) {}
+        try { application.whisperModelManager.ensureModel() } catch (_: Exception) {}
     }
 }

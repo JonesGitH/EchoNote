@@ -29,6 +29,9 @@ interface RecordingDao {
     @Query("SELECT * FROM recordings WHERE transcriptionStatus = 'COMPLETED' AND deleted = 0 AND createdAtEpochMillis >= :sinceEpochMillis")
     suspend fun getCompletedSince(sinceEpochMillis: Long): List<RecordingEntity>
 
+    @Query("SELECT * FROM recordings WHERE deleted = 0 AND createdAtEpochMillis >= :sinceEpochMillis ORDER BY createdAtEpochMillis ASC")
+    suspend fun getAllForDay(sinceEpochMillis: Long): List<RecordingEntity>
+
     @Query("UPDATE recordings SET deleted = 1 WHERE id = :id")
     suspend fun softDelete(id: Long)
 

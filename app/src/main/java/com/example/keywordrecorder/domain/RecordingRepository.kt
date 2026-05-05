@@ -38,6 +38,9 @@ class RecordingRepository(private val dao: RecordingDao) {
     suspend fun getCompletedSince(sinceEpochMillis: Long): List<RecordingEntity> =
         dao.getCompletedSince(sinceEpochMillis)
 
+    suspend fun getAllForDay(sinceEpochMillis: Long): List<RecordingEntity> =
+        dao.getAllForDay(sinceEpochMillis)
+
     suspend fun softDelete(id: Long) = dao.softDelete(id)
 
     suspend fun restoreRecording(id: Long) = dao.restoreRecording(id)

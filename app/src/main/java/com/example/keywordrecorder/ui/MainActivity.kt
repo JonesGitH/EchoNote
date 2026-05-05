@@ -8,7 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.view.WindowCompat
 import com.example.keywordrecorder.ui.navigation.AppNavGraph
-import com.example.keywordrecorder.ui.theme.KeywordRecorderTheme
+import com.example.keywordrecorder.ui.theme.EchoNoteTheme
 
 class MainActivity : ComponentActivity() {
 
@@ -29,7 +29,7 @@ class MainActivity : ComponentActivity() {
         permissionLauncher.launch(permissions.toTypedArray())
 
         setContent {
-            KeywordRecorderTheme {
+            EchoNoteTheme {
                 AppNavGraph()
             }
         }
